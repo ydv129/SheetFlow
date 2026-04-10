@@ -1,0 +1,354 @@
+/**
+ * Custom React Hook: useLocalAI
+ *
+ * Manages local AI model initialization and inference
+ * NO DATA goes to the backend - everything runs in the browser
+ *
+ * Features:
+ * - Initialize WebLLM engine with GPU acceleration
+ * - Default to fast small model (SmolLM2-360M)
+ * - Option to download larger model (Gemma-4-E2B)
+ * - Generate responses about Excel data
+ * - Track model download progress
+ *
+ * Usage:
+ * const { isReady, model, response, askQuestion } = useLocalAI();
+ * if (isReady) {
+ *   const answer = await askQuestion("What's the average price?", chunks);
+ * }
+ */
+
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  createSemanticChunks,
+  findRelevantChunks,
+  formatChunksForAI,
+  createContextSummary,
+  DataChunk,
+} from "@/lib/semanticChunking";
+import type { ExcelSheet } from "@/lib/excelParser";
+
+/**
+ * Available AI models
+ * Smaller models (SmolLM2) are faster, larger models (Gemma) are smarter
+ */
+export type AIModel = "SmolLM2-360M" | "Gemma-4-E2B";
+
+/**
+ * State of the AI engine
+ */
+export type AIStatus =
+  | "not-initialized" // Not started yet
+  | "initializing" // Loading WebLLM library
+  | "downloading-model" // Downloading the model
+  | "ready" // Ready for inference
+  | "thinking" // Processing a question
+  | "error"; // An error occurred
+
+/**
+ * Main hook return type
+ */
+export interface UseLocalAIReturn {
+  // Status information
+  status: AIStatus;
+  isReady: boolean;
+  currentModel: AIModel;
+  downloadProgress: number; // 0-100
+
+  // Model management
+  switchModel: (model: AIModel) => Promise<void>;
+
+  // AI operations
+  askQuestion: (query: string, sheet: ExcelSheet) => Promise<string>;
+  stopGeneration: () => void;
+
+  // State information
+  lastResponse: string | null;
+  error: string | null;
+  estimatedTokens: number; // How many tokens will be used
+}
+
+/**
+ * Type for WebLLM engine (we import it dynamically to avoid build issues)
+ */
+interface WebLLMEngine {
+  reload(modelId: string): Promise<void>;
+  generate(
+    prompt: string,
+    options?: {
+      temperature?: number;
+      top_p?: number;
+      max_tokens?: number;
+    }
+  ): AsyncIterable<string>;
+  interruptGenerate(): void;
+}
+
+/**
+ * The main hook implementation
+ */
+export function useLocalAI(): UseLocalAIReturn {
+  // Engine instance (lazy loaded)
+  const engineRef = useRef<WebLLMEngine | null>(null);
+
+  // Current status
+  const [status, setStatus] = useState<AIStatus>("not-initialized");
+
+  // Model info
+  const [currentModel, setCurrentModel] = useState<AIModel>("SmolLM2-360M");
+
+  // Download progress tracking
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // Last response from AI
+  const [lastResponse, setLastResponse] = useState<string | null>(null);
+
+  // Error message if something went wrong
+  const [error, setError] = useState<string | null>(null);
+
+  // Estimate of tokens that will be used
+  const [estimatedTokens, setEstimatedTokens] = useState(0);
+
+  // Track if component is mounted
+  const isMountedRef = useRef(true);
+
+  /**
+   * Initialize the AI engine on component mount
+   * This loads WebLLM library and prepares the engine
+   */
+  useEffect(() => {
+    const initializeAI = async () => {
+      try {
+        setStatus("initializing");
+        setError(null);
+
+        // Dynamically import WebLLM to avoid build issues
+        // This library only loads when needed
+        const webllm = await import("@mlc-ai/web-llm");
+
+        // Create the engine instance
+        // Engine manages the model lifecycle and inference
+        const engine = new webllm.MLCEngine() as unknown as WebLLMEngine;
+
+        engineRef.current = engine;
+
+        // Load the default model
+        // SmolLM2-360M is small (~2GB) and fast
+        setStatus("downloading-model");
+
+        // Set up progress tracking
+        const progressCallback = (info: any) => {
+          if (info.type === "progress") {
+            const progress = Math.floor((info.loaded / info.total) * 100);
+            if (isMountedRef.current) {
+              setDownloadProgress(progress);
+            }
+          }
+        };
+
+        // Initialize with the default model
+        await engine.reload("SmolLM2-360M");
+
+        if (isMountedRef.current) {
+          setStatus("ready");
+          setDownloadProgress(0);
+        }
+      } catch (err) {
+        const errorMsg =
+          err instanceof Error ? err.message : "Failed to initialize AI";
+
+        console.error("AI initialization error:", err);
+
+        if (isMountedRef.current) {
+          setStatus("error");
+          setError(
+            `AI not available: ${errorMsg}. Ensure your browser supports WebGPU.`
+          );
+        }
+      }
+    };
+
+    initializeAI();
+
+    // Cleanup on unmount
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  /**
+   * Switch to a different model
+   * Useful when user needs more advanced analysis
+   */
+  async function switchModel(newModel: AIModel): Promise<void> {
+    if (!engineRef.current) {
+      setError("AI engine not initialized");
+      return;
+    }
+
+    if (newModel === currentModel) {
+      return; // Already using this model
+    }
+
+    try {
+      setStatus("downloading-model");
+      setDownloadProgress(0);
+      setError(null);
+
+      // Reload with new model
+      const progressCallback = (info: any) => {
+        if (info.type === "progress") {
+          const progress = Math.floor((info.loaded / info.total) * 100);
+          if (isMountedRef.current) {
+            setDownloadProgress(progress);
+          }
+        }
+      };
+
+      // Map our model names to WebLLM model IDs
+      const modelId =
+        newModel === "Gemma-4-E2B" ? "Gemma2-9B-It-q4f16_1" : "SmolLM2-360M";
+
+      await engineRef.current.reload(modelId);
+
+      if (isMountedRef.current) {
+        setCurrentModel(newModel);
+        setStatus("ready");
+        setDownloadProgress(0);
+      }
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to switch model";
+
+      console.error("Model switch error:", err);
+
+      if (isMountedRef.current) {
+        setStatus("error");
+        setError(`Failed to switch model: ${errorMsg}`);
+      }
+    }
+  }
+
+  /**
+   * Ask the AI a question about Excel data
+   * This is the main function users will call
+   */
+  async function askQuestion(
+    query: string,
+    sheet: ExcelSheet
+  ): Promise<string> {
+    if (!engineRef.current) {
+      throw new Error("AI engine not ready");
+    }
+
+    if (status !== "ready") {
+      throw new Error(
+        `AI not ready. Current status: ${status}. Please wait for initialization.`
+      );
+    }
+
+    try {
+      setStatus("thinking");
+      setError(null);
+      setLastResponse(null);
+
+      // Create semantic chunks from the data
+      // This breaks large datasets into manageable pieces
+      const chunks = createSemanticChunks(sheet, 100);
+
+      // Find the most relevant chunks to the question
+      // This reduces the amount of data sent to the AI
+      const relevantChunks = findRelevantChunks(chunks, query);
+
+      // Format the chunks into a prompt
+      const formattedData = formatChunksForAI(relevantChunks);
+
+      // Create context that helps AI understand the data
+      const context = createContextSummary(sheet);
+
+      // Build the complete prompt
+      // This is what gets sent to the AI model
+      const systemPrompt =
+        `You are a helpful data analyst. ${context} ` +
+        `When answering questions, be concise and specific. `;
+
+      const userPrompt =
+        `Based on this data:\n\n${formattedData}\n\n` +
+        `Please answer this question: ${query}\n\n` +
+        `Provide a clear, actionable answer.`;
+
+      // Estimate tokens (rough calculation: 1 token ≈ 4 characters)
+      const estimatedTokenCount = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+      if (isMountedRef.current) {
+        setEstimatedTokens(estimatedTokenCount);
+      }
+
+      // Generate response using the model
+      // This runs entirely in the browser - no cloud calls!
+      let fullResponse = "";
+
+      // Stream the response
+      for await (const chunk of engineRef.current.generate(userPrompt)) {
+        fullResponse += chunk;
+
+        if (isMountedRef.current) {
+          setLastResponse(fullResponse);
+        }
+      }
+
+      if (isMountedRef.current) {
+        setStatus("ready");
+      }
+
+      return fullResponse;
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to generate response";
+
+      console.error("Query error:", err);
+
+      if (isMountedRef.current) {
+        setStatus("error");
+        setError(`AI Error: ${errorMsg}`);
+      }
+
+      throw err;
+    }
+  }
+
+  /**
+   * Stop generation immediately
+   * Useful if response is taking too long
+   */
+  function stopGeneration(): void {
+    if (engineRef.current && status === "thinking") {
+      engineRef.current.interruptGenerate();
+
+      if (isMountedRef.current) {
+        setStatus("ready");
+      }
+    }
+  }
+
+  return {
+    // Status
+    status,
+    isReady: status === "ready",
+
+    // Model
+    currentModel,
+    downloadProgress,
+
+    // Actions
+    switchModel,
+    askQuestion,
+    stopGeneration,
+
+    // State
+    lastResponse,
+    error,
+    estimatedTokens,
+  };
+}
