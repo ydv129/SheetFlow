@@ -9,6 +9,7 @@ import React, { useMemo, useRef, useState } from "react";
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { ExcelWorkbook } from "@/lib/excelParser";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ExcelDataViewerProps {
   workbook: ExcelWorkbook | null;
@@ -28,36 +29,25 @@ export function ExcelDataViewer({
   const [rowsToShow, setRowsToShow] = useState(10);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
 
-  if (!workbook) {
-    return (
-      <div className="p-4 text-center text-gray-500">
-        Select an Excel file to view data
-      </div>
-    );
-  }
+  // Compute selectedSheet early to ensure hooks are called consistently
+  const selectedSheet = workbook ? workbook.sheets[activeSheetIndex] : null;
 
-  const selectedSheet = workbook.sheets[activeSheetIndex];
-
-  if (!selectedSheet) {
-    return (
-      <div className="p-4 text-center text-red-500">Sheet not found</div>
-    );
-  }
-
-  const data = useMemo(() => selectedSheet.rows, [selectedSheet.rows]);
+  const data = useMemo(() => selectedSheet?.rows || [], [selectedSheet?.rows]);
   const columns = useMemo(
     () =>
-      selectedSheet.columnNames.map((columnName) =>
-        columnHelper.accessor(columnName, {
-          id: columnName,
-          header: () => columnName,
-          cell: (info) => {
-            const value = info.getValue();
-            return value !== undefined && value !== null ? String(value) : "—";
-          },
-        })
-      ),
-    [selectedSheet.columnNames]
+      selectedSheet
+        ? selectedSheet.columnNames.map((columnName) =>
+            columnHelper.accessor(columnName, {
+              id: columnName,
+              header: () => columnName,
+              cell: (info) => {
+                const value = info.getValue();
+                return value !== undefined && value !== null ? String(value) : "—";
+              },
+            })
+          )
+        : [],
+    [selectedSheet?.columnNames]
   );
 
   const table = useReactTable({
@@ -72,6 +62,20 @@ export function ExcelDataViewer({
     estimateSize: () => 44,
     overscan: 8,
   });
+
+  if (!workbook) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        Select an Excel file to view data
+      </div>
+    );
+  }
+
+  if (!selectedSheet) {
+    return (
+      <div className="p-4 text-center text-red-500">Sheet not found</div>
+    );
+  }
 
   const virtualRows = rowVirtualizer.getVirtualItems();
   const totalSize = rowVirtualizer.getTotalSize();
@@ -123,28 +127,32 @@ export function ExcelDataViewer({
       </div>
 
       {/* Virtualized data table */}
-      <div className="border border-gray-200 rounded bg-white">
-        {selectedSheet.rowCount === 0 ? (
-          <div className="p-4 text-center text-gray-500">This sheet is empty</div>
-        ) : (
-          <div className="h-[520px] overflow-auto" ref={tableContainerRef}>
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-gray-100 sticky top-0 z-10">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id} className="border-b border-gray-200">
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700 w-12">#</th>
-                    {headerGroup.headers.map((header) => (
-                      <th
-                        key={header.id}
-                        className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap"
-                      >
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
+      <Card className="max-h-[75vh] overflow-hidden">
+        <CardHeader>
+          <CardTitle>Data Table</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {selectedSheet.rowCount === 0 ? (
+            <div className="p-4 text-center text-gray-500">This sheet is empty</div>
+          ) : (
+            <div className="h-[520px] overflow-auto" ref={tableContainerRef}>
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-gray-100 sticky top-0 z-10">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id} className="border-b border-gray-200">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 w-12">#</th>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap"
+                        >
+                          {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
                 <tr style={{ height: paddingTop }} />
                 {virtualRows.map((virtualRow) => {
                   const row = table.getRowModel().rows[virtualRow.index];
@@ -168,7 +176,8 @@ export function ExcelDataViewer({
             </table>
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Column info */}
       <div className="p-4 bg-gray-50 rounded">

@@ -15,6 +15,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const CHART_COLORS = [
   "#2563eb",
@@ -158,15 +159,18 @@ export function DataDashboard({ sheet }: DataDashboardProps) {
 
   if (!sheet) {
     return (
-      <div className="bg-blue-50 rounded-xl border border-blue-100 p-6 text-center text-blue-700">
-        Load a sheet first to view dashboards and charts.
-      </div>
+      <Card className="bg-blue-50 border-blue-100">
+        <CardContent className="p-6 text-center text-blue-700">
+          Load a sheet first to view dashboards and charts.
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
             Sheet dashboard
@@ -216,36 +220,44 @@ export function DataDashboard({ sheet }: DataDashboardProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 mb-6">
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-          <p className="text-sm text-slate-500">Rows</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{sheet.rowCount}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-          <p className="text-sm text-slate-500">Columns</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{sheet.columnNames.length}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-          <p className="text-sm text-slate-500">Numeric fields</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{numericColumns.length}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-          <p className="text-sm text-slate-500">Categorical fields</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{categoricalColumns.length}</p>
-        </div>
-      </div>
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI Cards - Top Row */}
+        <Card className="md:col-span-1">
+          <CardContent className="p-5">
+            <p className="text-sm text-slate-500">Rows</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{sheet.rowCount}</p>
+          </CardContent>
+        </Card>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-6">
-        <div className="space-y-6">
-          <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm text-slate-500">Numeric trend</p>
-                <h4 className="text-lg font-semibold text-slate-900">
-                  {numericColumn || "No numeric column available"}
-                </h4>
-              </div>
-            </div>
+        <Card className="md:col-span-1">
+          <CardContent className="p-5">
+            <p className="text-sm text-slate-500">Columns</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{sheet.columnNames.length}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-1">
+          <CardContent className="p-5">
+            <p className="text-sm text-slate-500">Numeric fields</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{numericColumns.length}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-1">
+          <CardContent className="p-5">
+            <p className="text-sm text-slate-500">Categorical fields</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{categoricalColumns.length}</p>
+          </CardContent>
+        </Card>
+
+        {/* Charts Section - Spans 2 columns */}
+        <Card className="md:col-span-2 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Numeric Trend</CardTitle>
+            <p className="text-sm text-slate-500">{numericColumn || "No numeric column available"}</p>
+          </CardHeader>
+          <CardContent>
             {numericColumn ? (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -261,17 +273,15 @@ export function DataDashboard({ sheet }: DataDashboardProps) {
             ) : (
               <p className="text-sm text-slate-500">No numeric values found to render a chart.</p>
             )}
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm text-slate-500">Top categories</p>
-                <h4 className="text-lg font-semibold text-slate-900">
-                  {categoryColumn || "No category column available"}
-                </h4>
-              </div>
-            </div>
+        <Card className="md:col-span-2 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Top Categories</CardTitle>
+            <p className="text-sm text-slate-500">{categoryColumn || "No category column available"}</p>
+          </CardHeader>
+          <CardContent>
             {categoryColumn ? (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -298,61 +308,65 @@ export function DataDashboard({ sheet }: DataDashboardProps) {
             ) : (
               <p className="text-sm text-slate-500">No categorical values found to render a chart.</p>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-          <p className="text-sm text-slate-500">Numeric field summary</p>
-          {numericStats ? (
-            <div className="mt-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Sum</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {numericStats.sum.toLocaleString()}
-                  </p>
+        {/* Summary Stats - Full Width */}
+        <Card className="md:col-span-2 lg:col-span-4">
+          <CardHeader>
+            <CardTitle className="text-lg">Numeric Field Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {numericStats ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">Sum</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">
+                      {numericStats.sum.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">Average</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">
+                      {numericStats.average.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">Min</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">
+                      {numericStats.min.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs text-lg font-semibold text-slate-900">
+                      {numericStats.max.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Average</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {numericStats.average.toFixed(2)}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Min</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {numericStats.min.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Max</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {numericStats.max.toLocaleString()}
-                  </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">Data points</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">
+                      {numericStats.count}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500">Unique values</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">
+                      {numericStats.uniqueCount}
+                    </p>
+                  </div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Data points</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {numericStats.count}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Unique values</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-900">
-                    {numericStats.uniqueCount}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 mt-4">
-              Pick a numeric field to see summary metrics.
-            </p>
-          )}
-        </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Pick a numeric field to see summary metrics.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-/**
- * Simple in-memory rate limiting for demo purposes
- * In production, use Valkey/Redis for distributed rate limiting
- */
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+import { getValkeyClient } from "@/backend/db/valkey";
 
 /**
  * Rate limiting configuration
@@ -36,37 +31,66 @@ function getClientIP(request: NextRequest): string {
 }
 
 /**
- * Check rate limit for a client (in-memory)
+ * Check rate limit for a client using Valkey
  */
-function checkRateLimit(clientIP: string): { allowed: boolean; remaining: number; resetTime: number } {
+async function checkRateLimit(clientIP: string): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
   const now = Date.now();
-  const key = clientIP;
-  const record = rateLimitMap.get(key);
+  const key = `ratelimit:${clientIP}`;
+  const windowKey = `${key}:window`;
 
-  if (!record || now > record.resetTime) {
-    // New window
-    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+  try {
+    const valkey = getValkeyClient();
+
+    // Get current count and window start time
+    const [count, windowStart] = await Promise.all([
+      valkey.get(key),
+      valkey.get(windowKey)
+    ]);
+
+    const currentCount = count ? parseInt(count, 10) : 0;
+    const currentWindowStart = windowStart ? parseInt(windowStart, 10) : now;
+
+    // Check if we're in a new window
+    if (now - currentWindowStart >= RATE_LIMIT_WINDOW) {
+      // New window - reset counter
+      await Promise.all([
+        valkey.set(key, "1"),
+        valkey.set(windowKey, now.toString()),
+        valkey.pexpire(key, RATE_LIMIT_WINDOW),
+        valkey.pexpire(windowKey, RATE_LIMIT_WINDOW)
+      ]);
+      return {
+        allowed: true,
+        remaining: RATE_LIMIT_MAX_REQUESTS - 1,
+        resetTime: now + RATE_LIMIT_WINDOW,
+      };
+    }
+
+    // Still in current window
+    if (currentCount >= RATE_LIMIT_MAX_REQUESTS) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: currentWindowStart + RATE_LIMIT_WINDOW,
+      };
+    }
+
+    // Increment counter
+    await valkey.incr(key);
     return {
       allowed: true,
-      remaining: RATE_LIMIT_MAX_REQUESTS - 1,
+      remaining: RATE_LIMIT_MAX_REQUESTS - currentCount - 1,
+      resetTime: currentWindowStart + RATE_LIMIT_WINDOW,
+    };
+  } catch (error) {
+    console.error("Rate limiting error:", error);
+    // On error, allow the request to prevent blocking legitimate users
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT_MAX_REQUESTS,
       resetTime: now + RATE_LIMIT_WINDOW,
     };
   }
-
-  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime: record.resetTime,
-    };
-  }
-
-  record.count++;
-  return {
-    allowed: true,
-    remaining: RATE_LIMIT_MAX_REQUESTS - record.count,
-    resetTime: record.resetTime,
-  };
 }
 
 /**
@@ -84,7 +108,7 @@ export async function middleware(request: NextRequest) {
   // Apply rate limiting to all /api/backend routes
   if (pathname.startsWith("/api/backend")) {
     const clientIP = getClientIP(request);
-    const rateLimitResult = checkRateLimit(clientIP);
+    const rateLimitResult = await checkRateLimit(clientIP);
 
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
@@ -117,7 +141,9 @@ export async function middleware(request: NextRequest) {
 /**
  * Configuration for where this middleware should run
  * We protect all API routes under /api/backend
+ * Force Node.js runtime to support Valkey/Redis operations
  */
 export const config = {
   matcher: ["/api/backend/:path*"],
+  runtime: "nodejs",
 };

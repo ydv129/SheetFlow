@@ -73,28 +73,36 @@ export function ExcelUploadSection({
   // Show no file selected state
   if (!fileHandle) {
     return (
-      <div className="p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+      <div className="rounded-[2rem] border-2 border-dashed border-slate-600 bg-slate-950/40 p-8 shadow-[0_40px_120px_-70px_rgba(15,23,42,0.8)] backdrop-blur-md">
+        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl border border-slate-700 bg-slate-900/80 text-3xl">
+          📄
+        </div>
+        <h2 className="text-xl font-semibold text-foreground mb-2 text-center">Awaiting your Excel file...</h2>
+        <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto text-center">
+          Upload or select an Excel workbook to begin. SheetFlow will parse the sheet, build visual analytics, and keep everything local.
+        </p>
+
         <button
           onClick={selectFile}
           disabled={status === "selecting"}
-          className="w-full p-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
+          className="w-full p-4 bg-gradient-to-r from-indigo-600 to-emerald-600 text-white font-semibold rounded-3xl hover:from-indigo-700 hover:to-emerald-700 disabled:opacity-50 transition"
         >
-          {status === "selecting" ? "Selecting..." : "📁 Select Excel File"}
+          {status === "selecting" ? "Selecting..." : "Select Excel File"}
         </button>
 
         {savedFileNames.length > 0 && (
-          <div className="mt-4">
-            <p className="text-sm text-gray-600 mb-2 font-medium">
-              Recently used files:
+          <div className="mt-6">
+            <p className="text-sm text-muted-foreground mb-3 font-medium text-center">
+              Recent workbook selections
             </p>
-            <div className="space-y-2">
+            <div className="grid gap-3">
               {savedFileNames.map((name: string) => (
                 <button
                   key={name}
                   onClick={() => loadSavedFile(name)}
-                  className="block w-full text-left p-2 bg-white border border-gray-200 rounded hover:bg-gray-50 text-sm"
+                  className="w-full text-left rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-foreground hover:bg-slate-900"
                 >
-                  📄 {name}
+                  {name}
                 </button>
               ))}
             </div>

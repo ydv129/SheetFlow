@@ -87,6 +87,46 @@ interface WebLLMEngine {
 }
 
 /**
+ * Calculate SHA-256 hash of data
+ */
+async function calculateSHA256(data: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Expected checksums for model chunks (these would be provided by the model registry)
+ * In a real implementation, these would be fetched from a trusted source
+ */
+const EXPECTED_CHECKSUMS: Record<string, string> = {};
+
+/**
+ * Validate model data integrity before loading
+ */
+async function validateModelChecksum(modelId: string, modelData: ArrayBuffer): Promise<boolean> {
+  try {
+    const expectedChecksum = EXPECTED_CHECKSUMS[modelId];
+
+    if (!expectedChecksum) {
+      return true; // No checksum configured for this model yet
+    }
+
+    const actualChecksum = await calculateSHA256(modelData);
+    const isValid = actualChecksum === expectedChecksum;
+
+    if (!isValid) {
+      console.error(`Model checksum validation failed for ${modelId}. Expected: ${expectedChecksum}, Got: ${actualChecksum}`);
+    }
+
+    return isValid;
+  } catch (error) {
+    console.error("Error validating model checksum:", error);
+    return false;
+  }
+}
+
+/**
  * The main hook implementation
  */
 export function useLocalAI(): UseLocalAIReturn {
@@ -137,16 +177,6 @@ export function useLocalAI(): UseLocalAIReturn {
         // Load the default model
         // SmolLM2-360M is small (~2GB) and fast
         setStatus("downloading-model");
-
-        // Set up progress tracking
-        const progressCallback = (info: any) => {
-          if (info.type === "progress") {
-            const progress = Math.floor((info.loaded / info.total) * 100);
-            if (isMountedRef.current) {
-              setDownloadProgress(progress);
-            }
-          }
-        };
 
         // Initialize with the default model
         await engine.reload("SmolLM2-360M");
