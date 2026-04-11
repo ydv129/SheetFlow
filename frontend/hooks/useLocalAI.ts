@@ -172,9 +172,20 @@ export function useLocalAI(): UseLocalAIReturn {
 
     initializeAI();
 
-    // Cleanup on unmount
+    // Cleanup on unmount - attempt to free resources
     return () => {
       isMountedRef.current = false;
+      if (engineRef.current) {
+        try {
+          // Attempt to unload model if method exists
+          if (typeof (engineRef.current as any).unload === 'function') {
+            (engineRef.current as any).unload();
+          }
+        } catch (err) {
+          console.warn("Failed to unload AI model:", err);
+        }
+        engineRef.current = null;
+      }
     };
   }, []);
 
