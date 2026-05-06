@@ -32,9 +32,10 @@ import type { ExcelSheet } from "@/lib/excelParser";
 
 /**
  * Available AI models
- * Smaller models (SmolLM2) are faster, larger models (Gemma) are smarter
+ * TinyLlama: 1.1B ultra-lightweight model for browsers
+ * Phi-3-mini: 3.8B efficient model with better quality
  */
-export type AIModel = "SmolLM2-360M" | "Gemma-4-E2B";
+export type AIModel = "TinyLlama-1.1B" | "Phi-3-mini-4k";
 
 /**
  * State of the AI engine
@@ -142,7 +143,7 @@ export function useLocalAI(): UseLocalAIReturn {
   const [status, setStatus] = useState<AIStatus>("not-initialized");
 
   // Model info
-  const [currentModel, setCurrentModel] = useState<AIModel>("SmolLM2-360M");
+  const [currentModel, setCurrentModel] = useState<AIModel>("TinyLlama-1.1B");
 
   // Download progress tracking
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -176,16 +177,21 @@ export function useLocalAI(): UseLocalAIReturn {
         setStatus("downloading-model");
 
         try {
-          await engine.reload("SmolLM2-360M");
+          await engine.reload("TinyLlama-1.1B-Chat-v1.0-q80f32");
         } catch (modelError: any) {
-          console.warn("SmolLM2-360M not available:", modelError?.message);
-          if (isMountedRef.current) {
-            setStatus("error");
-            setError(
-              "AI models not available in your region or browser. Excel data analysis will still work without AI."
-            );
+          console.warn("TinyLlama not available, trying Phi-3:", modelError?.message);
+          try {
+            await engine.reload("Phi-3-mini-4k-instruct-q4f16_1");
+          } catch (altError: any) {
+            console.warn("Phi-3 also unavailable:", altError?.message);
+            if (isMountedRef.current) {
+              setStatus("error");
+              setError(
+                "Lightweight AI models not available. Ensure stable internet for first-time download."
+              );
+            }
+            return;
           }
-          return;
         }
 
         if (isMountedRef.current) {
@@ -240,7 +246,7 @@ export function useLocalAI(): UseLocalAIReturn {
       setError(null);
 
       const modelId =
-        newModel === "Gemma-4-E2B" ? "Gemma2-9B-It-q4f16_1" : "SmolLM2-360M";
+        newModel === "Phi-3-mini-4k" ? "Phi-3-mini-4k-instruct-q4f16_1" : "TinyLlama-1.1B-Chat-v1.0-q80f32";
 
       // Create progress listener
       const updateProgress = (event: any) => {

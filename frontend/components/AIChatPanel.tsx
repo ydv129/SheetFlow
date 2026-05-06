@@ -214,26 +214,26 @@ export const AIChatPanel = memo(function AIChatPanel({
           <p className="text-xs text-gray-600 mb-2 font-medium">MODEL</p>
           <div className="flex gap-2">
             <button
-              onClick={() => switchModel("SmolLM2-360M")}
+              onClick={() => switchModel("TinyLlama-1.1B")}
               className={`px-3 py-2 rounded text-sm font-medium transition ${
-                currentModel === "SmolLM2-360M"
+                currentModel === "TinyLlama-1.1B"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
               disabled={isLoading}
             >
-              ⚡ Fast (360M)
+              ⚡ Fast (1.1B)
             </button>
             <button
-              onClick={() => switchModel("Gemma-4-E2B")}
+              onClick={() => switchModel("Phi-3-mini-4k")}
               className={`px-3 py-2 rounded text-sm font-medium transition ${
-                currentModel === "Gemma-4-E2B"
+                currentModel === "Phi-3-mini-4k"
                   ? "bg-purple-600 text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
               disabled={isLoading}
             >
-              🧠 Smart (Gemma-4)
+              🧠 Smart (3.8B)
             </button>
           </div>
         </div>
