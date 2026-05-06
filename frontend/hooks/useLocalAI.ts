@@ -173,18 +173,40 @@ export function useLocalAI(): UseLocalAIReturn {
         // This library only loads when needed
         const webllm = await import("@mlc-ai/web-llm");
 
+        // Load model configuration
+        try {
+          const response = await fetch("/model_list.json");
+          if (response.ok) {
+            const modelList = await response.json();
+            console.log("Model list loaded:", modelList);
+          }
+        } catch (configError) {
+          console.warn("Could not load model configuration:", configError);
+        }
+
         // Create the engine instance
         // Engine manages the model lifecycle and inference
         const engine = new webllm.MLCEngine() as unknown as WebLLMEngine;
 
         engineRef.current = engine;
 
-        // Load the default model
-        // SmolLM2-360M is small (~2GB) and fast
         setStatus("downloading-model");
 
         // Initialize with the default model
-        await engine.reload("SmolLM2-360M");
+        try {
+          await engine.reload("SmolLM2-360M");
+        } catch (modelError) {
+          console.warn("SmolLM2-360M not available, trying alternative:", modelError);
+          // Try alternative model if default fails
+          try {
+            await engine.reload("Llama-2-7b-chat-hf-q4f16_1");
+          } catch (altError) {
+            console.error("Alternative model also failed:", altError);
+            throw new Error(
+              "No compatible AI models available. Ensure WebGPU is supported and models are properly configured."
+            );
+          }
+        }
 
         if (isMountedRef.current) {
           setStatus("ready");
@@ -199,7 +221,7 @@ export function useLocalAI(): UseLocalAIReturn {
         if (isMountedRef.current) {
           setStatus("error");
           setError(
-            `AI not available: ${errorMsg}. Ensure your browser supports WebGPU.`,
+            `AI not available: ${errorMsg}. Ensure your browser supports WebGPU and try refreshing the page.`,
           );
         }
       }
@@ -282,7 +304,7 @@ export function useLocalAI(): UseLocalAIReturn {
 
       if (isMountedRef.current) {
         setStatus("error");
-        setError(`Failed to switch model: ${errorMsg}`);
+        setError(`Failed to switch model: ${errorMsg}. Please refresh and try again.`);
       }
     }
   }
