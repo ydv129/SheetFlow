@@ -176,22 +176,40 @@ export function useLocalAI(): UseLocalAIReturn {
 
         setStatus("downloading-model");
 
-        try {
-          await engine.reload("TinyLlama-1.1B-Chat-v1.0-q80f32");
-        } catch (modelError: any) {
-          console.warn("TinyLlama not available, trying Phi-3:", modelError?.message);
+        // List of lightweight models to try (in order of preference)
+        const modelsToTry = [
+          "TinyLlama-1.1B-Chat-v1.0-int4",
+          "TinyLlama-1.1B-Chat-v1.0-q4f16_1",
+          "TinyLlama-1.1B-Chat-v1.0-q80f32",
+          "llama-2-7b-chat-hf-q4f16_1",
+          "Mistral-7B-Instruct-v0.2-q4f16_1",
+          "neural-chat-7b-v3-1-q4f16_1",
+          "OpenHermes-2.5-Mistral-7B-q4f16_1",
+        ];
+
+        let modelLoaded = false;
+
+        for (const modelId of modelsToTry) {
           try {
-            await engine.reload("Phi-3-mini-4k-instruct-q4f16_1");
-          } catch (altError: any) {
-            console.warn("Phi-3 also unavailable:", altError?.message);
-            if (isMountedRef.current) {
-              setStatus("error");
-              setError(
-                "Lightweight AI models not available. Ensure stable internet for first-time download."
-              );
-            }
-            return;
+            console.log(`Trying to load model: ${modelId}`);
+            await engine.reload(modelId);
+            console.log(`Successfully loaded: ${modelId}`);
+            modelLoaded = true;
+            break;
+          } catch (err: any) {
+            console.warn(`Model ${modelId} not available:`, err?.message);
+            continue;
           }
+        }
+
+        if (!modelLoaded) {
+          if (isMountedRef.current) {
+            setStatus("error");
+            setError(
+              "No lightweight AI models available. Check internet connection and try refreshing the page."
+            );
+          }
+          return;
         }
 
         if (isMountedRef.current) {
@@ -245,30 +263,46 @@ export function useLocalAI(): UseLocalAIReturn {
       setDownloadProgress(0);
       setError(null);
 
-      const modelId =
-        newModel === "Phi-3-mini-4k" ? "Phi-3-mini-4k-instruct-q4f16_1" : "TinyLlama-1.1B-Chat-v1.0-q80f32";
+      const modelsToTry = [
+        "TinyLlama-1.1B-Chat-v1.0-int4",
+        "TinyLlama-1.1B-Chat-v1.0-q4f16_1",
+        "TinyLlama-1.1B-Chat-v1.0-q80f32",
+        "llama-2-7b-chat-hf-q4f16_1",
+        "Mistral-7B-Instruct-v0.2-q4f16_1",
+        "neural-chat-7b-v3-1-q4f16_1",
+        "OpenHermes-2.5-Mistral-7B-q4f16_1",
+      ];
 
-      // Create progress listener
-      const updateProgress = (event: any) => {
-        if (event && event.detail) {
-          const { loaded, total } = event.detail;
-          if (total > 0) {
-            const progress = Math.floor((loaded / total) * 100);
-            if (isMountedRef.current) {
-              setDownloadProgress(progress);
-            }
-          }
+      // For Phi model, try different variants
+      if (newModel === "Phi-3-mini-4k") {
+        modelsToTry.unshift(
+          "Phi-3-mini-4k-instruct-q4f16_1",
+          "Phi-3-mini-instruct-v0.2-q4f16_1",
+          "Phi-3-mini-q4f16_1"
+        );
+      }
+
+      let modelLoaded = false;
+      let lastError = "";
+
+      for (const modelId of modelsToTry) {
+        try {
+          console.log(`Switching to model: ${modelId}`);
+          await engineRef.current.reload(modelId);
+          console.log(`Successfully switched to: ${modelId}`);
+          modelLoaded = true;
+          break;
+        } catch (err: any) {
+          lastError = err?.message || String(err);
+          console.warn(`Model ${modelId} not available:`, lastError);
+          continue;
         }
-      };
+      }
 
-      // Add progress listener before reload
-      const channel = new BroadcastChannel("webllm-download");
-      channel.addEventListener("message", updateProgress);
-
-      try {
-        await engineRef.current.reload(modelId);
-      } finally {
-        channel.close();
+      if (!modelLoaded) {
+        throw new Error(
+          `No available model for ${newModel}. Check internet and refresh.`
+        );
       }
 
       if (isMountedRef.current) {
