@@ -48,7 +48,9 @@ export function ExcelUploadSection({
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-center gap-3">
           <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-          <span className="text-blue-700 font-medium">Loading Excel file...</span>
+          <span className="text-blue-700 font-medium">
+            Loading Excel file...
+          </span>
         </div>
       </div>
     );
@@ -77,9 +79,12 @@ export function ExcelUploadSection({
         <div className="mx-auto mb-4 sm:mb-6 flex h-16 sm:h-20 md:h-24 w-16 sm:w-20 md:w-24 items-center justify-center rounded-2xl sm:rounded-3xl border border-slate-700 bg-slate-900/80 text-2xl sm:text-3xl">
           📄
         </div>
-        <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2 text-center">Awaiting your Excel file...</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2 text-center">
+          Awaiting your Excel file...
+        </h2>
         <p className="text-xs sm:text-sm text-muted-foreground mb-6 sm:mb-8 max-w-md mx-auto text-center">
-          Upload or select an Excel workbook to begin. SheetFlow will parse the sheet, build visual analytics, and keep everything local.
+          Upload or select a spreadsheet (Excel, CSV, or ODS). SheetFlow will
+          parse the sheets, build visual analytics, and keep everything local.
         </p>
 
         <button
@@ -119,13 +124,19 @@ export function ExcelUploadSection({
       <div className="p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-950/30 dark:border-green-900 dark:text-green-100">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm text-green-700 dark:text-green-400 font-medium">📄 File loaded</p>
-            <p className="font-semibold text-green-900 dark:text-green-100 truncate text-sm sm:text-base">{fileName}</p>
+            <p className="text-xs sm:text-sm text-green-700 dark:text-green-400 font-medium">
+              📄 File loaded
+            </p>
+            <p className="font-semibold text-green-900 dark:text-green-100 truncate text-sm sm:text-base">
+              {fileName}
+            </p>
             <p className="text-xs text-green-700 dark:text-green-400 mt-1">
               {isWatching ? "🔄 Watching for changes" : "⏸️ Watching paused"}
             </p>
           </div>
-          <div className="text-xl sm:text-2xl text-green-600 flex-shrink-0">✓</div>
+          <div className="text-xl sm:text-2xl text-green-600 flex-shrink-0">
+            ✓
+          </div>
         </div>
       </div>
 

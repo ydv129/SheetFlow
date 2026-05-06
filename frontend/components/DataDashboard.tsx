@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, memo } from "react";
 import type { ExcelSheet } from "@/lib/excelParser";
 import {
   BarChart,
@@ -122,7 +122,7 @@ interface DataDashboardProps {
   sheet: ExcelSheet | null;
 }
 
-export function DataDashboard({ sheet }: DataDashboardProps) {
+export const DataDashboard = memo(function DataDashboard({ sheet }: DataDashboardProps) {
   const [selectedNumericColumn, setSelectedNumericColumn] = useState<string>("");
   const [selectedCategoryColumn, setSelectedCategoryColumn] = useState<string>("");
 
@@ -339,7 +339,8 @@ export function DataDashboard({ sheet }: DataDashboardProps) {
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-xs text-lg font-semibold text-slate-900">
+                    <p className="text-xs text-slate-500">Max</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">
                       {numericStats.max.toLocaleString()}
                     </p>
                   </div>
@@ -370,4 +371,4 @@ export function DataDashboard({ sheet }: DataDashboardProps) {
       </div>
     </div>
   );
-}
+});

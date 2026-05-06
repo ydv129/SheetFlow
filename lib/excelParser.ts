@@ -31,34 +31,38 @@ export interface ExcelWorkbook {
  * @returns Parsed workbook data
  */
 export async function parseExcelFile(file: File): Promise<ExcelWorkbook> {
-  // Validate that it's actually an Excel file
-  if (!isValidExcelFile(file)) {
-    throw new Error("File must be an .xlsx or .xls Excel file");
+  if (!isValidSpreadsheetFile(file)) {
+    throw new Error(
+      "File must be a spreadsheet (.xlsx, .xls, .xlsm, .csv, .ods)",
+    );
   }
 
   try {
-    // Read the file as an array buffer
     const buffer = await file.arrayBuffer();
+    const extension = file.name.toLowerCase().split(".").pop() || "";
 
-    // Parse the Excel file using SheetJS
-    const workbook = XLSX.read(buffer, { type: "array" });
+    let workbook;
+    if (extension === "csv") {
+      const text = new TextDecoder().decode(buffer);
+      workbook = XLSX.read(text, { type: "string" });
+    } else {
+      workbook = XLSX.read(buffer, { type: "array" });
+    }
 
-    // Extract sheet information
     const sheets = workbook.SheetNames.map((sheetName) => {
-      // Get the actual sheet object
       const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
+        defval: "",
+      });
 
-      // Convert sheet to JSON format
-      // This turns rows into objects with column headers as keys
-      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet);
-
-      // Get column names from the first row
       const columnNames =
         rows.length > 0 ? Object.keys(rows[0] as Record<string, any>) : [];
 
       return {
         name: sheetName,
-        rows,
+        rows: rows.filter((row) =>
+          Object.values(row).some((val) => val !== ""),
+        ),
         columnNames,
         rowCount: rows.length,
       };
@@ -66,34 +70,38 @@ export async function parseExcelFile(file: File): Promise<ExcelWorkbook> {
 
     return {
       fileName: file.name,
-      sheets,
+      sheets: sheets.filter((sheet) => sheet.rows.length > 0),
       sheetCount: sheets.length,
     };
   } catch (error) {
-    console.error("Error parsing Excel file:", error);
-    throw new Error(`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
+    console.error("Error parsing file:", error);
+    throw new Error(
+      `Failed to parse file: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
   }
 }
 
 /**
- * Check if a file is a valid Excel file
+ * Check if a file is a valid spreadsheet file
  * @param file - File to validate
- * @returns True if file is .xlsx or .xls
+ * @returns True if file is a recognized spreadsheet format
  */
-function isValidExcelFile(file: File): boolean {
-  // Check file extension
-  const validExtensions = [".xlsx", ".xls", ".xlsm"];
+function isValidSpreadsheetFile(file: File): boolean {
+  const validExtensions = [".xlsx", ".xls", ".xlsm", ".csv", ".ods", ".tsv"];
   const hasValidExtension = validExtensions.some((ext) =>
-    file.name.toLowerCase().endsWith(ext)
+    file.name.toLowerCase().endsWith(ext),
   );
 
-  // Also check MIME type just to be safe
   const validMimeTypes = [
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
     "application/vnd.ms-excel.sheet.macroEnabled.12",
+    "text/csv",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "text/plain",
   ];
-  const hasValidMimeType = validMimeTypes.includes(file.type);
+
+  const hasValidMimeType = !file.type || validMimeTypes.includes(file.type);
 
   return hasValidExtension || hasValidMimeType;
 }
@@ -104,7 +112,10 @@ function isValidExcelFile(file: File): boolean {
  * @param sheetIndex - Index of the sheet (0-based)
  * @returns The specific sheet
  */
-export function getSheet(workbook: ExcelWorkbook, sheetIndex: number): ExcelSheet | undefined {
+export function getSheet(
+  workbook: ExcelWorkbook,
+  sheetIndex: number,
+): ExcelSheet | undefined {
   if (sheetIndex < 0 || sheetIndex >= workbook.sheets.length) {
     return undefined;
   }
@@ -119,7 +130,7 @@ export function getSheet(workbook: ExcelWorkbook, sheetIndex: number): ExcelShee
  */
 export function getSheetByName(
   workbook: ExcelWorkbook,
-  sheetName: string
+  sheetName: string,
 ): ExcelSheet | undefined {
   return workbook.sheets.find((sheet) => sheet.name === sheetName);
 }
@@ -133,7 +144,7 @@ export function getSheetByName(
  */
 export function filterSheetRows(
   sheet: ExcelSheet,
-  predicate: (row: Record<string, any>, index: number) => boolean
+  predicate: (row: Record<string, any>, index: number) => boolean,
 ): Record<string, any>[] {
   return sheet.rows.filter(predicate);
 }
@@ -148,7 +159,7 @@ export function filterSheetRows(
 export function getRowsSlice(
   sheet: ExcelSheet,
   startIndex: number,
-  limit: number
+  limit: number,
 ): Record<string, any>[] {
   return sheet.rows.slice(startIndex, startIndex + limit);
 }
@@ -159,11 +170,10 @@ export function getRowsSlice(
  * @param columnName - Name of the column
  * @returns Array of values from that column
  */
-export function getColumnData(
-  sheet: ExcelSheet,
-  columnName: string
-): any[] {
-  return sheet.rows.map((row) => row[columnName]).filter((val) => val !== undefined);
+export function getColumnData(sheet: ExcelSheet, columnName: string): any[] {
+  return sheet.rows
+    .map((row) => row[columnName])
+    .filter((val) => val !== undefined);
 }
 
 /**

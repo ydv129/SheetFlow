@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, memo } from "react";
 import { useLocalAI } from "@/frontend/hooks/useLocalAI";
 import type { ExcelSheet } from "@/lib/excelParser";
 
@@ -26,7 +26,10 @@ interface ChatMessage {
   error?: string;
 }
 
-export function AIChatPanel({ sheet, onClose }: AIChatPanelProps) {
+export const AIChatPanel = memo(function AIChatPanel({
+  sheet,
+  onClose,
+}: AIChatPanelProps) {
   const {
     status,
     isReady,
@@ -319,16 +322,15 @@ export function AIChatPanel({ sheet, onClose }: AIChatPanelProps) {
             </div>
 
             <p className="text-xs text-gray-600">
-              💡 All processing happens locally - your data never leaves your browser
+              💡 All processing happens locally - your data never leaves your
+              browser
             </p>
           </form>
         ) : (
           <div className="text-center text-gray-500 text-sm">
             {status === "initializing" && "Loading AI engine..."}
             {status === "downloading-model" && (
-              <>
-                Downloading model... ({downloadProgress}%)
-              </>
+              <>Downloading model... ({downloadProgress}%)</>
             )}
             {status === "error" && "AI not available"}
           </div>
@@ -336,4 +338,4 @@ export function AIChatPanel({ sheet, onClose }: AIChatPanelProps) {
       </div>
     </div>
   );
-}
+});

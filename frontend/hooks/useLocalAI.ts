@@ -81,7 +81,7 @@ interface WebLLMEngine {
       temperature?: number;
       top_p?: number;
       max_tokens?: number;
-    }
+    },
   ): AsyncIterable<string>;
   interruptGenerate(): void;
 }
@@ -90,9 +90,9 @@ interface WebLLMEngine {
  * Calculate SHA-256 hash of data
  */
 async function calculateSHA256(data: ArrayBuffer): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -104,7 +104,10 @@ const EXPECTED_CHECKSUMS: Record<string, string> = {};
 /**
  * Validate model data integrity before loading
  */
-async function validateModelChecksum(modelId: string, modelData: ArrayBuffer): Promise<boolean> {
+async function validateModelChecksum(
+  modelId: string,
+  modelData: ArrayBuffer,
+): Promise<boolean> {
   try {
     const expectedChecksum = EXPECTED_CHECKSUMS[modelId];
 
@@ -116,7 +119,9 @@ async function validateModelChecksum(modelId: string, modelData: ArrayBuffer): P
     const isValid = actualChecksum === expectedChecksum;
 
     if (!isValid) {
-      console.error(`Model checksum validation failed for ${modelId}. Expected: ${expectedChecksum}, Got: ${actualChecksum}`);
+      console.error(
+        `Model checksum validation failed for ${modelId}. Expected: ${expectedChecksum}, Got: ${actualChecksum}`,
+      );
     }
 
     return isValid;
@@ -194,7 +199,7 @@ export function useLocalAI(): UseLocalAIReturn {
         if (isMountedRef.current) {
           setStatus("error");
           setError(
-            `AI not available: ${errorMsg}. Ensure your browser supports WebGPU.`
+            `AI not available: ${errorMsg}. Ensure your browser supports WebGPU.`,
           );
         }
       }
@@ -208,7 +213,7 @@ export function useLocalAI(): UseLocalAIReturn {
       if (engineRef.current) {
         try {
           // Attempt to unload model if method exists
-          if (typeof (engineRef.current as any).unload === 'function') {
+          if (typeof (engineRef.current as any).unload === "function") {
             (engineRef.current as any).unload();
           }
         } catch (err) {
@@ -230,7 +235,7 @@ export function useLocalAI(): UseLocalAIReturn {
     }
 
     if (newModel === currentModel) {
-      return; // Already using this model
+      return;
     }
 
     try {
@@ -238,21 +243,31 @@ export function useLocalAI(): UseLocalAIReturn {
       setDownloadProgress(0);
       setError(null);
 
-      // Reload with new model
-      const progressCallback = (info: any) => {
-        if (info.type === "progress") {
-          const progress = Math.floor((info.loaded / info.total) * 100);
-          if (isMountedRef.current) {
-            setDownloadProgress(progress);
+      const modelId =
+        newModel === "Gemma-4-E2B" ? "Gemma2-9B-It-q4f16_1" : "SmolLM2-360M";
+
+      // Create progress listener
+      const updateProgress = (event: any) => {
+        if (event && event.detail) {
+          const { loaded, total } = event.detail;
+          if (total > 0) {
+            const progress = Math.floor((loaded / total) * 100);
+            if (isMountedRef.current) {
+              setDownloadProgress(progress);
+            }
           }
         }
       };
 
-      // Map our model names to WebLLM model IDs
-      const modelId =
-        newModel === "Gemma-4-E2B" ? "Gemma2-9B-It-q4f16_1" : "SmolLM2-360M";
+      // Add progress listener before reload
+      const channel = new BroadcastChannel("webllm-download");
+      channel.addEventListener("message", updateProgress);
 
-      await engineRef.current.reload(modelId);
+      try {
+        await engineRef.current.reload(modelId);
+      } finally {
+        channel.close();
+      }
 
       if (isMountedRef.current) {
         setCurrentModel(newModel);
@@ -278,7 +293,7 @@ export function useLocalAI(): UseLocalAIReturn {
    */
   async function askQuestion(
     query: string,
-    sheet: ExcelSheet
+    sheet: ExcelSheet,
   ): Promise<string> {
     if (!engineRef.current) {
       throw new Error("AI engine not ready");
@@ -286,7 +301,7 @@ export function useLocalAI(): UseLocalAIReturn {
 
     if (status !== "ready") {
       throw new Error(
-        `AI not ready. Current status: ${status}. Please wait for initialization.`
+        `AI not ready. Current status: ${status}. Please wait for initialization.`,
       );
     }
 
@@ -321,7 +336,9 @@ export function useLocalAI(): UseLocalAIReturn {
         `Provide a clear, actionable answer.`;
 
       // Estimate tokens (rough calculation: 1 token ≈ 4 characters)
-      const estimatedTokenCount = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+      const estimatedTokenCount = Math.ceil(
+        (systemPrompt.length + userPrompt.length) / 4,
+      );
       if (isMountedRef.current) {
         setEstimatedTokens(estimatedTokenCount);
       }
