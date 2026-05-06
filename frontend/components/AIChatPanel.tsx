@@ -151,13 +151,14 @@ export const AIChatPanel = memo(function AIChatPanel({
 
     if (status === "error") {
       return (
-        <div className="p-4 bg-red-50 border border-red-200 rounded">
-          <p className="text-red-700 font-medium">
-            ⚠️ AI Offline: WebGPU not available
-          </p>
-          <p className="text-red-600 text-sm mt-1">
-            This browser may not support local AI. Try Chrome, Edge, or Opera.
-          </p>
+        <div className="p-6 text-center">
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-700 font-medium mb-2">⚠️ AI Currently Unavailable</p>
+            <p className="text-yellow-600 text-sm">{aiError || "Local AI is not available right now."}</p>
+            <p className="text-yellow-600 text-sm mt-2">
+              You can still upload and analyze Excel files without AI assistance.
+            </p>
+          </div>
         </div>
       );
     }

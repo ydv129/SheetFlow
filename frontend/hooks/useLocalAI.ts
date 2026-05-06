@@ -169,43 +169,23 @@ export function useLocalAI(): UseLocalAIReturn {
         setStatus("initializing");
         setError(null);
 
-        // Dynamically import WebLLM to avoid build issues
-        // This library only loads when needed
         const webllm = await import("@mlc-ai/web-llm");
-
-        // Load model configuration
-        try {
-          const response = await fetch("/model_list.json");
-          if (response.ok) {
-            const modelList = await response.json();
-            console.log("Model list loaded:", modelList);
-          }
-        } catch (configError) {
-          console.warn("Could not load model configuration:", configError);
-        }
-
-        // Create the engine instance
-        // Engine manages the model lifecycle and inference
         const engine = new webllm.MLCEngine() as unknown as WebLLMEngine;
-
         engineRef.current = engine;
 
         setStatus("downloading-model");
 
-        // Initialize with the default model
         try {
           await engine.reload("SmolLM2-360M");
-        } catch (modelError) {
-          console.warn("SmolLM2-360M not available, trying alternative:", modelError);
-          // Try alternative model if default fails
-          try {
-            await engine.reload("Llama-2-7b-chat-hf-q4f16_1");
-          } catch (altError) {
-            console.error("Alternative model also failed:", altError);
-            throw new Error(
-              "No compatible AI models available. Ensure WebGPU is supported and models are properly configured."
+        } catch (modelError: any) {
+          console.warn("SmolLM2-360M not available:", modelError?.message);
+          if (isMountedRef.current) {
+            setStatus("error");
+            setError(
+              "AI models not available in your region or browser. Excel data analysis will still work without AI."
             );
           }
+          return;
         }
 
         if (isMountedRef.current) {
@@ -213,15 +193,11 @@ export function useLocalAI(): UseLocalAIReturn {
           setDownloadProgress(0);
         }
       } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : "Failed to initialize AI";
-
-        console.error("AI initialization error:", err);
-
+        console.warn("AI initialization skipped:", err instanceof Error ? err.message : err);
         if (isMountedRef.current) {
           setStatus("error");
           setError(
-            `AI not available: ${errorMsg}. Ensure your browser supports WebGPU and try refreshing the page.`,
+            "Local AI unavailable. You can still analyze Excel files without AI assistance."
           );
         }
       }
@@ -229,12 +205,10 @@ export function useLocalAI(): UseLocalAIReturn {
 
     initializeAI();
 
-    // Cleanup on unmount - attempt to free resources
     return () => {
       isMountedRef.current = false;
       if (engineRef.current) {
         try {
-          // Attempt to unload model if method exists
           if (typeof (engineRef.current as any).unload === "function") {
             (engineRef.current as any).unload();
           }
