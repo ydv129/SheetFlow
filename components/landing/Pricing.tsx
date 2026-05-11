@@ -2,9 +2,21 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { useSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function Pricing() {
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  function handleCta() {
+    if (session) {
+      router.push("/dashboard");
+    } else {
+      signIn("google", { callbackUrl: "/dashboard" });
+    }
+  }
   const plans = [
     {
       name: "Free",
@@ -91,13 +103,14 @@ export function Pricing() {
                     ))}
                   </ul>
                   <button
+                    onClick={handleCta}
                     className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${
                       plan.popular
                         ? 'bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl hover:shadow-indigo-500/25'
                         : 'bg-muted hover:bg-accent text-foreground border border-border'
                     }`}
                   >
-                    {plan.cta}
+                    {session ? "Go to Dashboard" : plan.cta}
                   </button>
                 </CardContent>
               </Card>

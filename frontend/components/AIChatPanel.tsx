@@ -1,12 +1,19 @@
 /**
  * AIChatPanel Component
- * Beautiful chat interface for querying Excel data with local AI
- * All AI processing happens in the browser - zero cloud dependency
+ *
+ * Chat interface for querying Excel data with local AI (WebLLM).
+ * All AI processing happens in the browser — zero cloud dependency.
+ *
+ * Changes:
+ * - Engine is NOT auto-started on mount (lazy: user clicks "Load AI")
+ * - Uses updated useLocalAI API (initEngine, chat.completions)
+ * - Shows clear status + retry for errors
  */
 
 "use client";
 
 import React, { useState, useRef, useEffect, memo } from "react";
+import { useSession } from "next-auth/react";
 import { useLocalAI } from "@/frontend/hooks/useLocalAI";
 import type { ExcelSheet } from "@/lib/excelParser";
 
@@ -15,21 +22,19 @@ interface AIChatPanelProps {
   onClose?: () => void;
 }
 
-/**
- * Represents a message in the chat (user or AI)
- */
 interface ChatMessage {
   id: string;
   role: "user" | "ai";
   content: string;
   timestamp: Date;
-  error?: string;
+  isError?: boolean;
 }
 
 export const AIChatPanel = memo(function AIChatPanel({
   sheet,
   onClose,
 }: AIChatPanelProps) {
+  const { data: session } = useSession();
   const {
     status,
     isReady,
@@ -38,137 +43,146 @@ export const AIChatPanel = memo(function AIChatPanel({
     askQuestion,
     stopGeneration,
     switchModel,
+    initEngine,
     error: aiError,
   } = useLocalAI();
 
-  // Chat history
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  // Current input from user
   const [input, setInput] = useState("");
-
-  // Whether we're waiting for a response
   const [isLoading, setIsLoading] = useState(false);
-
-  // Reference to chat container for auto-scrolling
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /**
-   * Handle user submitting a question
-   */
+  // ── Submit handler ─────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!input.trim() || !isReady || !sheet) return;
 
-    if (!input.trim() || !isReady || !sheet) {
-      return;
-    }
-
-    // Add user message to chat
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}-user`,
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
       role: "user",
       content: input,
       timestamp: new Date(),
     };
-
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
     try {
-      // Send to AI for analysis
       const response = await askQuestion(input, sheet);
-
-      // Add AI response to chat
-      const aiMessage: ChatMessage = {
-        id: `msg-${Date.now()}-ai`,
-        role: "ai",
-        content: response,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: "ai",
+          content: response,
+          timestamp: new Date(),
+        },
+      ]);
     } catch (err) {
-      // Add error message
-      const errorMessage: ChatMessage = {
-        id: `msg-${Date.now()}-error`,
-        role: "ai",
-        content: err instanceof Error ? err.message : "Failed to get response",
-        timestamp: new Date(),
-        error: "true",
-      };
-
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `e-${Date.now()}`,
+          role: "ai",
+          content: err instanceof Error ? err.message : "Failed to get response",
+          timestamp: new Date(),
+          isError: true,
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   }
 
-  /**
-   * Render status message
-   */
-  function renderStatusMessage() {
+  // ── No sheet guard ─────────────────────────────────────────────────────────
+  if (!sheet) {
+    return (
+      <div className="p-6 text-center text-muted-foreground">
+        <p className="mb-2 text-2xl">📊</p>
+        <p className="font-medium">Upload an Excel file to start chatting</p>
+        <p className="text-sm mt-1 text-muted-foreground">
+          Once data is loaded you can ask questions here
+        </p>
+      </div>
+    );
+  }
+
+  // ── Status banner ──────────────────────────────────────────────────────────
+  function StatusBanner() {
+    if (status === "not-initialized") {
+      return (
+        <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-lg text-center">
+          <p className="text-muted-foreground text-sm mb-3">
+            🤖 Local AI is not loaded yet. Models run 100% on your device.
+          </p>
+          <button
+            onClick={initEngine}
+            className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white rounded-lg font-semibold text-sm transition active:scale-95"
+          >
+            Load AI Model
+          </button>
+        </div>
+      );
+    }
+
     if (status === "initializing") {
       return (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-            <span className="text-blue-700 font-medium">
-              Initializing AI engine...
-            </span>
-          </div>
+        <div className="p-4 bg-blue-950/40 border border-blue-800 rounded-lg flex items-center gap-3">
+          <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full flex-shrink-0" />
+          <span className="text-blue-300 text-sm font-medium">
+            Initializing AI engine…
+          </span>
         </div>
       );
     }
 
     if (status === "downloading-model") {
       return (
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded">
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <p className="text-yellow-700 font-medium mb-2">
-                📥 Downloading AI model ({downloadProgress}%)
-              </p>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-yellow-600 h-2 rounded-full transition-all"
-                  style={{ width: `${downloadProgress}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-yellow-600 mt-2">
-                First time only - model cached after download
-              </p>
-            </div>
+        <div className="p-4 bg-yellow-950/40 border border-yellow-800 rounded-lg">
+          <p className="text-yellow-300 font-medium text-sm mb-2">
+            📥 Downloading model ({downloadProgress}%)
+          </p>
+          <div className="w-full bg-slate-700 rounded-full h-2">
+            <div
+              className="bg-gradient-to-r from-yellow-400 to-emerald-400 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${downloadProgress}%` }}
+            />
           </div>
+          <p className="text-xs text-yellow-600 mt-2">
+            First time only — model is cached after download
+          </p>
         </div>
       );
     }
 
     if (status === "error") {
       return (
-        <div className="p-6 text-center">
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-700 font-medium mb-2">⚠️ AI Currently Unavailable</p>
-            <p className="text-yellow-600 text-sm">{aiError || "Local AI is not available right now."}</p>
-            <p className="text-yellow-600 text-sm mt-2">
-              You can still upload and analyze Excel files without AI assistance.
-            </p>
-          </div>
+        <div className="p-4 bg-red-950/40 border border-red-800 rounded-lg">
+          <p className="text-red-300 font-medium text-sm mb-1">⚠️ AI Unavailable</p>
+          <p className="text-red-400 text-xs mb-3">
+            {aiError ?? "Local AI could not be started."}
+          </p>
+          <button
+            onClick={initEngine}
+            className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-medium transition active:scale-95"
+          >
+            Retry
+          </button>
         </div>
       );
     }
 
     if (isReady) {
       return (
-        <div className="p-3 bg-green-50 border border-green-200 rounded text-sm">
-          <span className="text-green-700">✓ AI Ready</span>
-          <span className="text-gray-600 mx-2">•</span>
-          <span className="text-gray-700 font-medium">{currentModel}</span>
+        <div className="p-2 bg-green-950/30 border border-green-800 rounded text-xs flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-emerald-300 font-medium">AI Ready</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-slate-400">{currentModel}</span>
         </div>
       );
     }
@@ -176,101 +190,98 @@ export const AIChatPanel = memo(function AIChatPanel({
     return null;
   }
 
-  /**
-   * If no sheet selected, show prompt
-   */
-  if (!sheet) {
-    return (
-      <div className="p-6 text-center text-gray-600">
-        <p className="mb-2">📊 Select an Excel file to start chatting</p>
-        <p className="text-sm text-gray-500">
-          Once you load data, you can ask questions about it here
-        </p>
-      </div>
-    );
-  }
-
+  // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-900/80 rounded-xl border border-slate-700 overflow-hidden">
       {/* Header */}
-      <div className="border-b border-gray-200 p-4 flex justify-between items-center">
-        <h2 className="font-bold text-gray-900">🤖 AI Analyst</h2>
+      <div className="border-b border-slate-700 px-4 py-3 flex justify-between items-center flex-shrink-0">
+        <h2 className="font-bold text-foreground text-sm">🤖 AI Analyst</h2>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none transition"
           >
             ✕
           </button>
         )}
       </div>
 
-      {/* Status Bar */}
-      <div className="px-4 pt-4">{renderStatusMessage()}</div>
+      {/* Status */}
+      <div className="px-4 pt-3 pb-1 flex-shrink-0">
+        <StatusBanner />
+      </div>
 
-      {/* Model Selector */}
+      {/* Model switcher — only visible when ready */}
       {isReady && (
-        <div className="px-4 py-3 border-b border-gray-200">
-          <p className="text-xs text-gray-600 mb-2 font-medium">MODEL</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => switchModel("TinyLlama-1.1B")}
-              className={`px-3 py-2 rounded text-sm font-medium transition ${
-                currentModel === "TinyLlama-1.1B"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-              disabled={isLoading}
-            >
-              ⚡ Fast (1.1B)
-            </button>
-            <button
-              onClick={() => switchModel("Phi-3-mini-4k")}
-              className={`px-3 py-2 rounded text-sm font-medium transition ${
-                currentModel === "Phi-3-mini-4k"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-              disabled={isLoading}
-            >
-              🧠 Smart (3.8B)
-            </button>
+        <div className="px-4 py-2 border-b border-slate-700 flex-shrink-0">
+          <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">
+            Model
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {(
+              [
+                { key: "SmolLM2-360M", label: "🚀 Tiny (360M)", free: true },
+                { key: "TinyLlama-1.1B", label: "⚡ Fast (1.1B)", free: false },
+                { key: "Phi-3-mini-4k", label: "🧠 Smart (3.8B)", free: false },
+              ] as const
+            ).map(({ key, label, free }) => {
+              const isPro = (session?.user as any)?.subscriptionTier === "pro";
+              const locked = !free && !isPro;
+              
+              return (
+                <button
+                  key={key}
+                  onClick={() => !locked && switchModel(key)}
+                  disabled={isLoading || status !== "ready" || locked}
+                  className={`relative px-3 py-1.5 rounded text-xs font-medium transition disabled:opacity-50 ${
+                    currentModel === key
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                  } ${locked ? "cursor-not-allowed grayscale" : ""}`}
+                >
+                  {label}
+                  {locked && (
+                    <span className="absolute -top-1 -right-1 bg-amber-500 text-[8px] text-white px-1 rounded-full font-bold">PRO</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Chat messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin">
         {messages.length === 0 && isReady && (
-          <div className="text-center text-gray-500 py-8">
-            <p className="mb-2">💬 Ask me anything about your data</p>
-            <p className="text-sm text-gray-400">
-              Try: "What are the top values?" or "Show me the average"
+          <div className="text-center text-muted-foreground py-8 text-sm">
+            <p className="mb-1">💬 Ask anything about your data</p>
+            <p className="text-xs">
+              Try: &ldquo;What are the top 5 values?&rdquo; or &ldquo;Show me the average&rdquo;
             </p>
           </div>
         )}
 
-        {messages.map((message) => (
+        {messages.map((msg) => (
           <div
-            key={message.id}
-            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            key={msg.id}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                message.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : message.error
-                    ? "bg-red-50 text-red-800 border border-red-200"
-                    : "bg-gray-100 text-gray-900"
+              className={`max-w-[80%] px-4 py-3 rounded-xl text-sm whitespace-pre-wrap ${
+                msg.role === "user"
+                  ? "bg-indigo-600 text-white rounded-br-sm"
+                  : msg.isError
+                  ? "bg-red-950/60 text-red-300 border border-red-800 rounded-bl-sm"
+                  : "bg-slate-700/70 text-slate-100 rounded-bl-sm"
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {msg.content}
               <p
-                className={`text-xs mt-2 ${
-                  message.role === "user" ? "text-blue-100" : "text-gray-500"
+                className={`text-xs mt-1 ${
+                  msg.role === "user" ? "text-indigo-200" : "text-slate-500"
                 }`}
               >
-                {message.timestamp.toLocaleTimeString()}
+                {msg.timestamp.toLocaleTimeString()}
               </p>
             </div>
           </div>
@@ -278,11 +289,9 @@ export const AIChatPanel = memo(function AIChatPanel({
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-700 px-4 py-3 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-gray-400 border-t-gray-700 rounded-full"></div>
-                <span className="text-sm">Thinking...</span>
-              </div>
+            <div className="bg-slate-700/70 text-slate-300 px-4 py-3 rounded-xl rounded-bl-sm flex items-center gap-2">
+              <div className="animate-spin h-4 w-4 border-2 border-slate-400 border-t-slate-100 rounded-full" />
+              <span className="text-sm">Thinking…</span>
             </div>
           </div>
         )}
@@ -290,8 +299,8 @@ export const AIChatPanel = memo(function AIChatPanel({
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="border-t border-gray-200 p-4 bg-gray-50">
+      {/* Input area */}
+      <div className="border-t border-slate-700 p-4 bg-slate-900/60 flex-shrink-0">
         {isReady ? (
           <form onSubmit={handleSubmit} className="space-y-2">
             <div className="flex gap-2">
@@ -299,42 +308,39 @@ export const AIChatPanel = memo(function AIChatPanel({
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask me about the data..."
+                placeholder="Ask about your data…"
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="flex-1 px-4 py-2 bg-slate-800 border border-slate-600 text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
               />
               {isLoading ? (
                 <button
                   type="button"
                   onClick={stopGeneration}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm"
+                  className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition active:scale-95"
                 >
                   ■ Stop
                 </button>
               ) : (
                 <button
                   type="submit"
-                  disabled={!input.trim() || isLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 font-medium text-sm"
+                  disabled={!input.trim()}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition active:scale-95 disabled:opacity-40"
                 >
                   Send
                 </button>
               )}
             </div>
-
-            <p className="text-xs text-gray-600">
-              💡 All processing happens locally - your data never leaves your
-              browser
+            <p className="text-xs text-muted-foreground">
+              🔒 All processing is local — your data never leaves this device
             </p>
           </form>
         ) : (
-          <div className="text-center text-gray-500 text-sm">
-            {status === "initializing" && "Loading AI engine..."}
-            {status === "downloading-model" && (
-              <>Downloading model... ({downloadProgress}%)</>
-            )}
-            {status === "error" && "AI not available"}
-          </div>
+          <p className="text-center text-muted-foreground text-xs py-1">
+            {status === "initializing" && "Starting AI engine…"}
+            {status === "downloading-model" && `Downloading model (${downloadProgress}%)…`}
+            {status === "not-initialized" && "Click 'Load AI Model' above to get started"}
+            {status === "error" && "AI unavailable — see details above"}
+          </p>
         )}
       </div>
     </div>

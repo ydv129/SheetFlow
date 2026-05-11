@@ -75,10 +75,22 @@ const authConfig: NextAuthConfig = {
      * jwt callback - runs when JWT is created or updated
      * Add custom data to the token
      */
-    async jwt({ token, user, account }) {
-      // If this is a new session, add user email to token
+    async jwt({ token, user }) {
       if (user) {
         token.email = user.email;
+      }
+
+      // Always fetch latest subscription info from DB to keep token fresh
+      if (token.email) {
+        try {
+          await connectToDatabase();
+          const dbUser = await User.findOne({ email: token.email });
+          if (dbUser) {
+            token.subscriptionTier = dbUser.subscriptionTier;
+          }
+        } catch (error) {
+          console.error("Error fetching subscription in JWT callback:", error);
+        }
       }
 
       return token;
@@ -91,6 +103,7 @@ const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       if (session.user) {
         session.user.email = token.email as string;
+        (session.user as any).subscriptionTier = token.subscriptionTier ?? "free";
       }
 
       return session;

@@ -61,19 +61,47 @@ export function UserMenu() {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-20">
-            <div className="p-3 border-b border-border">
-              <p className="text-sm font-medium text-foreground">
+          <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden backdrop-blur-xl">
+            <div className="p-4 border-b border-white/5 bg-white/5">
+              <p className="text-sm font-semibold text-white">
                 {session.user.name || "User"}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] text-slate-500 truncate">
                 {session.user.email}
               </p>
+              
+              <div className="mt-3 flex items-center justify-between">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  (session.user as any).subscriptionTier === "pro" 
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                    : "bg-slate-700 text-slate-300"
+                }`}>
+                  {(session.user as any).subscriptionTier === "pro" ? "Pro Plan" : "Free Plan"}
+                </span>
+              </div>
             </div>
-            <div className="p-2">
+
+            <div className="p-2 space-y-1">
+              {(session.user as any).subscriptionTier !== "pro" && (
+                <button
+                  onClick={async () => {
+                    if (confirm("Experience SheetFlow Pro? This will simulate a payment and upgrade your account instantly.")) {
+                      const res = await fetch("/api/subscription/upgrade", { method: "POST" });
+                      if (res.ok) {
+                        alert("Success! You are now a Pro user. Refreshing...");
+                        window.location.reload();
+                      }
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-indigo-400 hover:text-white hover:bg-indigo-600/20 rounded-lg transition-all"
+                >
+                  ✨ Upgrade to Pro
+                </button>
+              )}
+              
               <button
                 onClick={handleSignOut}
-                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
               >
                 Sign out
               </button>

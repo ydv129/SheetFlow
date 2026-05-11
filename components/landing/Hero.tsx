@@ -2,8 +2,12 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { useSession, signIn } from "next-auth/react";
+import Link from "next/link";
 
 export function Hero() {
+  const { data: session, status: sessionStatus } = useSession();
+  const isLoggedIn = sessionStatus !== "loading" && !!session;
   const sampleData = [
     { month: "Jan", revenue: 45000, growth: 12 },
     { month: "Feb", revenue: 52000, growth: 15 },
@@ -51,12 +55,31 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
           className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-12 sm:mb-16 w-full px-1"
         >
-          <a href="/dashboard" className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/25 transform hover:scale-105 active:scale-95">
-            Start for Free
-          </a>
-          <a href="/dashboard" className="w-full sm:w-auto border border-border bg-card hover:bg-accent text-foreground px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:shadow-lg active:scale-95">
-            Open Dashboard
-          </a>
+          {sessionStatus === "loading" ? (
+            <div className="w-40 h-12 rounded-xl bg-muted animate-pulse" />
+          ) : isLoggedIn ? (
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/25 transform hover:scale-105 active:scale-95 text-center"
+            >
+              Go to Dashboard →
+            </Link>
+          ) : (
+            <>
+              <button
+                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+                className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/25 transform hover:scale-105 active:scale-95"
+              >
+                Start for Free
+              </button>
+              <button
+                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+                className="w-full sm:w-auto border border-border bg-card hover:bg-accent text-foreground px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:shadow-lg active:scale-95"
+              >
+                Sign In
+              </button>
+            </>
+          )}
         </motion.div>
 
         {/* Live Dashboard Preview */}

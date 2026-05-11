@@ -1,6 +1,21 @@
-# SheetFlow AI - Local-First Excel Dashboarding & Analysis
-
 > A privacy-first, zero-cloud AI analysis tool for Excel files, built for MSMEs (Micro, Small & Medium Enterprises).
+
+## 🖼️ Preview
+
+<div align="center">
+  <img src="public/assets/screenshots/hero.png" width="800" alt="SheetFlow Hero" />
+  <p><i>Sleek, modern landing page with Google OAuth integration</i></p>
+  
+  <br />
+  
+  <img src="public/assets/screenshots/dashboard.png" width="800" alt="SheetFlow Dashboard" />
+  <p><i>Interactive dark-glass dashboard with real-time data visualizations</i></p>
+  
+  <br />
+  
+  <img src="public/assets/screenshots/chat.png" width="400" alt="SheetFlow AI Chat" />
+  <p><i>Local AI Analyst - Ask questions about your data privately</i></p>
+</div>
 
 ## 🎯 What is SheetFlow?
 
@@ -108,11 +123,24 @@ All endpoints under `/api/backend` are protected by middleware in `middleware.ts
 
 ### Data Privacy
 
-- **Excel data stays in browser** - never sent to backend
-- **Only metadata in database** - user settings, project configs
-- **No tracking** - SheetFlow doesn't collect usage data
+- **Excel data stays in browser** - never sent to backend. We use `sessionStorage` for persistence across reloads.
+- **Only metadata in database** - user settings, project configs.
+- **No tracking** - SheetFlow doesn't collect usage data or telemetry.
 
 ---
+
+## 🛡️ Security Policy
+
+### Our Philosophy
+Privacy is not a feature; it's the foundation. SheetFlow is designed so that even if our servers were compromised, your sensitive Excel data would remain safe on your local machine.
+
+### Local-First Data Flow
+1. **Parsing**: When you select an Excel file, it is parsed by `SheetJS` directly in your browser's memory.
+2. **Persistence**: To improve UX, parsed data is stored in `sessionStorage`. This data is automatically cleared when you close the tab or browser.
+3. **Inference**: AI analysis happens via `WebLLM` using your local GPU. No text or data is ever sent to an external LLM provider (OpenAI, Anthropic, etc.).
+
+### Reporting Vulnerabilities
+If you discover a security vulnerability within SheetFlow, please open a GitHub Issue with the label `security` or contact the maintainers directly. We aim to address all critical security issues within 24 hours.
 
 ## 📚 API Documentation
 

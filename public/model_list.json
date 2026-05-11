@@ -1,14 +1,24 @@
 {
   "model_list": [
     {
-      "model_url": "https://huggingface.co/mlc-ai/web-llm-models/resolve/main/SmolLM2-360M/",
-      "local_id": "SmolLM2-360M",
-      "model_lib_url": "https://huggingface.co/mlc-ai/web-llm-models/resolve/main/SmolLM2-360M/smollm2-360m-q4f32_0.wasm"
+      "model": "https://huggingface.co/mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC/resolve/main/",
+      "model_id": "SmolLM2-360M-Instruct-q4f16_1-MLC",
+      "model_lib": "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-wasm/SmolLM2-360M-Instruct-q4f16_1-webgpu.wasm"
     },
     {
-      "model_url": "https://huggingface.co/mlc-ai/web-llm-models/resolve/main/Llama-2-7b-chat-hf/",
-      "local_id": "Llama-2-7b-chat-hf-q4f16_1",
-      "model_lib_url": "https://huggingface.co/mlc-ai/web-llm-models/resolve/main/Llama-2-7b-chat-hf/llama-2-7b-chat-hf-q4f16_1.wasm"
+      "model": "https://huggingface.co/mlc-ai/TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC/resolve/main/",
+      "model_id": "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC",
+      "model_lib": "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-wasm/TinyLlama-1.1B-Chat-v1.0-q4f16_1-webgpu.wasm"
+    },
+    {
+      "model": "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f16_1-MLC/resolve/main/",
+      "model_id": "Phi-3-mini-4k-instruct-q4f16_1-MLC",
+      "model_lib": "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-wasm/Phi-3-mini-4k-instruct-q4f16_1-webgpu.wasm"
+    },
+    {
+      "model": "https://huggingface.co/mlc-ai/Llama-2-7b-chat-hf-q4f16_1-MLC/resolve/main/",
+      "model_id": "Llama-2-7b-chat-hf-q4f16_1-MLC",
+      "model_lib": "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-wasm/Llama-2-7b-chat-hf-q4f16_1-webgpu.wasm"
     }
   ]
 }
