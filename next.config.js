@@ -66,7 +66,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' static.cloudflareinsights.com; connect-src 'self' huggingface.co *.huggingface.co hf.co *.hf.co raw.githubusercontent.com *.githubusercontent.com *.amazonaws.com; img-src 'self' data:; font-src 'self' fonts.googleapis.com fonts.gstatic.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; worker-src 'self' blob:;",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' static.cloudflareinsights.com; connect-src 'self' huggingface.co *.huggingface.co hf.co *.hf.co raw.githubusercontent.com *.githubusercontent.com *.amazonaws.com; img-src 'self' data: *.googleusercontent.com; font-src 'self' fonts.googleapis.com fonts.gstatic.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; worker-src 'self' blob:;",
           },
         ],
       },
