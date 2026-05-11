@@ -24,219 +24,258 @@ type Tab = "upload" | "analytics" | "data";
 
 export function DashboardClient() {
   const liveLink = useExcelLiveLink();
-  const { workbook, status } = liveLink;
+  const { activeWorkbook: workbook, status, activeFileName: fileName } = liveLink;
   const [tab, setTab] = useState<Tab>("upload");
   const [selectedSheet, setSelectedSheet] = useState(0);
   const [showChat, setShowChat] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const currentSheet = workbook?.sheets[selectedSheet] || null;
 
   const fileLoaded = useMemo(
     () => ((status as string) === "ready" || (status as string) === "watching") && workbook !== null,
     [status, workbook]
   );
 
-  const currentSheet = workbook?.sheets[selectedSheet] ?? null;
-
-  // On mount: if workbook was restored from sessionStorage, jump to analytics
   useEffect(() => {
-    if (fileLoaded && tab === "upload") setTab("analytics");
-  }, [fileLoaded]); // intentionally only depends on fileLoaded
-
-  useEffect(() => {
-    if (!workbook) { setSelectedSheet(0); setTab("upload"); }
+    if (!workbook) { setSelectedSheet(0); }
     else if (selectedSheet >= workbook.sheetCount) setSelectedSheet(0);
   }, [workbook, selectedSheet]);
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode; disabled?: boolean; badge?: string }[] = [
-    { id: "upload",    label: fileLoaded ? "File" : "Upload", icon: <Upload size={14} />, badge: fileLoaded ? "✓" : undefined },
-    { id: "analytics", label: "Analytics", icon: <BarChart2 size={14} />, disabled: !fileLoaded },
-    { id: "data",      label: "Data",      icon: <Table2 size={14} />,   disabled: !fileLoaded },
+  const sidebarItems: { id: Tab; label: string; icon: React.ReactNode; disabled?: boolean; badge?: string }[] = [
+    { id: "upload",    label: fileLoaded ? "Sources" : "Upload", icon: <Upload size={18} />, badge: fileLoaded ? `${liveLink.workbooks.length}` : undefined },
+    { id: "analytics", label: "Insights", icon: <BarChart2 size={18} />, disabled: !fileLoaded },
+    { id: "data",      label: "Explorer", icon: <Table2 size={18} />,   disabled: !fileLoaded },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e]">
+    <div className="flex h-screen w-full bg-[#030712] overflow-hidden">
       {/* ── Ambient background ─────────────────────────────────── */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-indigo-600/10 blur-[120px]" />
-        <div className="absolute top-1/3 right-0 h-72 w-72 rounded-full bg-emerald-500/8 blur-[100px]" />
-        <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-violet-600/8 blur-[90px]" />
+      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
+        <div className="absolute top-[-10%] left-[-10%] h-[40%] w-[40%] rounded-full bg-indigo-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-emerald-500/10 blur-[120px]" />
+        <div className="absolute top-[20%] right-[10%] h-[30%] w-[30%] rounded-full bg-violet-600/5 blur-[100px]" />
       </div>
 
-      {/* ── Header ────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#0a0f1e]/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            {/* Logo */}
-            <div className="flex items-center gap-2.5">
-              <motion.div 
-                initial={{ rotate: -10, scale: 0.9 }}
-                animate={{ 
-                  rotate: [0, 5, 0],
-                  scale: [1, 1.05, 1],
-                  filter: ["brightness(1)", "brightness(1.2)", "brightness(1)"]
-                }}
-                transition={{ 
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800/50 p-1 border border-white/10 shadow-2xl overflow-hidden group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Image 
-                  src="/icon.png" 
-                  alt="SheetFlow Logo" 
-                  width={28} 
-                  height={28} 
-                  className="relative z-10"
-                />
-              </motion.div>
-              <div className="flex flex-col -space-y-1">
-                <span className="text-sm font-black text-white tracking-tight uppercase">
-                  SheetFlow <span className="text-indigo-400">AI</span>
-                </span>
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                  Secure Analytics
-                </span>
-              </div>
-              {fileLoaded && workbook && (
-                <motion.div
-                  initial={{ opacity: 0, x: -8 }}
+      {/* ── Sidebar ───────────────────────────────────────────── */}
+      <motion.aside 
+        initial={false}
+        animate={{ width: isSidebarCollapsed ? 80 : 256 }}
+        transition={{ type: "spring", damping: 20, stiffness: 100 }}
+        className="relative z-50 border-r border-white/[0.06] bg-[#030712]/40 backdrop-blur-3xl flex flex-col shrink-0 overflow-hidden"
+      >
+        <div className="p-6 border-b border-white/[0.06] h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <motion.div 
+              animate={{ rotate: [0, 5, 0], scale: [1, 1.05, 1] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-800/50 p-1.5 border border-white/10 shadow-2xl"
+            >
+              <Image src="/icon.png" alt="Logo" width={32} height={32} className="relative z-10" />
+            </motion.div>
+            <AnimatePresence>
+              {!isSidebarCollapsed && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="hidden sm:flex items-center gap-1 text-xs text-slate-500"
+                  exit={{ opacity: 0, x: -10 }}
+                  className="flex flex-col -space-y-1"
                 >
-                  <ChevronRight size={12} />
-                  <span className="text-slate-400 font-medium truncate max-w-[140px]">
-                    {liveLink.fileName}
-                  </span>
+                  <span className="text-sm font-black text-white tracking-tight uppercase">SheetFlow <span className="text-indigo-400">AI</span></span>
+                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Secure Local Data</span>
                 </motion.div>
               )}
-            </div>
-
-            <UserMenu />
+            </AnimatePresence>
           </div>
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-all flex-shrink-0"
+          >
+            <ChevronRight size={16} className={`transition-transform duration-500 ${isSidebarCollapsed ? "" : "rotate-180"}`} />
+          </button>
         </div>
-      </header>
 
-      {/* ── Tab bar ───────────────────────────────────────────── */}
-      <div className="sticky top-14 z-30 border-b border-white/[0.05] bg-[#0a0f1e]/70 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-1 py-2">
-            {tabs.map(({ id, label, icon, disabled, badge }) => (
-              <button
-                key={id}
-                onClick={() => !disabled && setTab(id)}
-                disabled={disabled}
-                className={`relative flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-                  tab === id
-                    ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
-                }`}
-              >
-                {icon} {label}
-                {badge && (
-                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-bold">{badge}</span>
+        <nav className="flex-1 p-4 space-y-2 mt-4">
+          {sidebarItems.map(({ id, label, icon, disabled, badge }) => (
+            <button
+              key={id}
+              onClick={() => !disabled && setTab(id)}
+              disabled={disabled}
+              className={`group relative flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed ${
+                tab === id
+                  ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)]"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]"
+              }`}
+            >
+              <span className={`${tab === id ? "text-indigo-400" : "text-emerald-500/60 group-hover:text-emerald-400"} transition-colors flex-shrink-0`}>
+                {icon}
+              </span>
+              <AnimatePresence>
+                {!isSidebarCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="truncate"
+                  >
+                    {label}
+                  </motion.span>
                 )}
-              </button>
-            ))}
-          </div>
+              </AnimatePresence>
+              {badge && !isSidebarCollapsed && (
+                <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] font-black border border-emerald-500/30">
+                  {badge}
+                </span>
+              )}
+              {tab === id && (
+                <motion.div layoutId="active-pill" className="absolute left-0 w-1 h-6 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-white/[0.06] flex items-center overflow-hidden h-20">
+          {!isSidebarCollapsed && <UserMenu />}
+          {isSidebarCollapsed && (
+            <div className="mx-auto w-8 h-8 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center opacity-40">
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            </div>
+          )}
         </div>
+      </motion.aside>
+
+      {/* ── Main content area ─────────────────────────────────── */}
+      <div className="relative flex-1 flex flex-col z-10 overflow-hidden">
+        {/* Top Header info */}
+        <header className="h-16 border-b border-white/[0.06] bg-[#030712]/20 backdrop-blur-sm flex items-center justify-between px-8">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">Dashboard</h2>
+            {fileLoaded && (
+              <>
+                <ChevronRight size={14} className="text-slate-700" />
+                
+                {/* Enhanced File Switcher Dropdown */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.05] shadow-lg shadow-black/20">
+                    <Sparkles size={10} className="text-indigo-400" />
+                    <select 
+                      value={liveLink.activeWorkbookIndex}
+                      onChange={(e) => liveLink.setActiveWorkbook(parseInt(e.target.value))}
+                      className="bg-transparent border-none text-[11px] font-black text-slate-300 focus:ring-0 cursor-pointer uppercase tracking-tight"
+                    >
+                      {liveLink.workbooks.map((wb, idx) => (
+                        <option key={wb.id} value={idx} className="bg-slate-900 text-white py-2">
+                          {wb.fileName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Local AI Active</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable content container */}
+        <main className="flex-1 overflow-y-auto">
+          <div className={`mx-auto p-8 transition-all duration-500 ${isSidebarCollapsed ? "max-w-[95%]" : "max-w-6xl"}`}>
+            <AnimatePresence mode="wait">
+              {tab === "upload" && (
+                <motion.div
+                  key="upload"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="max-w-xl mx-auto py-12"
+                >
+                  <div className="mb-8 text-center">
+                    <h1 className="text-4xl font-black text-white tracking-tight mb-3">Welcome to <span className="text-indigo-500">SheetFlow</span></h1>
+                    <p className="text-slate-400 text-sm max-w-sm mx-auto">Upload your spreadsheet to begin private, AI-powered analysis right in your browser.</p>
+                  </div>
+                  <div className="bg-slate-900/40 backdrop-blur-xl rounded-3xl p-8 border border-white/[0.06] shadow-2xl">
+                    <ExcelUploadSection liveLink={liveLink} />
+                  </div>
+                </motion.div>
+              )}
+
+              {tab === "analytics" && fileLoaded && currentSheet && (
+                <motion.div
+                  key="analytics"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                >
+                  {workbook && workbook.sheetCount > 1 && (
+                    <div className="flex gap-2 mb-8 bg-white/[0.02] p-1 rounded-xl w-fit border border-white/5">
+                      {workbook.sheets.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedSheet(i)}
+                          className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                            selectedSheet === i
+                              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                              : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                          }`}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <DataDashboard sheet={currentSheet} />
+                </motion.div>
+              )}
+
+              {tab === "data" && fileLoaded && workbook && (
+                <motion.div
+                  key="data"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="rounded-3xl border border-white/[0.06] overflow-hidden bg-slate-950/50 backdrop-blur-sm">
+                    <ExcelDataViewer
+                      workbook={workbook}
+                      selectedSheetIndex={selectedSheet}
+                      onSheetChange={setSelectedSheet}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </main>
       </div>
 
-      {/* ── Main content ──────────────────────────────────────── */}
-      <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <AnimatePresence mode="wait">
-          {tab === "upload" && (
-            <motion.div
-              key="upload"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
-              className="max-w-xl mx-auto"
-            >
-              <div className="mb-6 text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-indigo-400 mb-2">
-                  Get Started
-                </p>
-                <h1 className="text-2xl font-bold text-white">Upload your spreadsheet</h1>
-                <p className="text-sm text-slate-500 mt-1">
-                  Your data stays 100% local — never leaves this device.
-                </p>
-              </div>
-              <ExcelUploadSection liveLink={liveLink} onFileLoaded={(loaded) => { if (loaded) setTab("analytics"); }} />
-            </motion.div>
-          )}
-
-          {tab === "analytics" && fileLoaded && currentSheet && (
-            <motion.div
-              key="analytics"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
-            >
-              {/* Sheet selector if multi-sheet */}
-              {workbook && workbook.sheetCount > 1 && (
-                <div className="flex gap-1 mb-5 flex-wrap">
-                  {workbook.sheets.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedSheet(i)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                        selectedSheet === i
-                          ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
-                          : "text-slate-500 hover:text-slate-300 border border-transparent hover:border-white/10"
-                      }`}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <DataDashboard sheet={currentSheet} />
-            </motion.div>
-          )}
-
-          {tab === "data" && fileLoaded && workbook && (
-            <motion.div
-              key="data"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
-            >
-              <ExcelDataViewer
-                workbook={workbook}
-                selectedSheetIndex={selectedSheet}
-                onSheetChange={setSelectedSheet}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
-
-      {/* ── AI Chat FAB ───────────────────────────────────────── */}
+      {/* ── AI Chat Overlay ───────────────────────────────────── */}
       <AnimatePresence>
         {fileLoaded && currentSheet && (
-          <div className="fixed bottom-5 right-5 z-50">
+          <div className="fixed bottom-8 right-8 z-[100]">
             {!showChat ? (
               <motion.button
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                whileHover={{ scale: 1.1 }}
+                whileActive={{ scale: 0.9 }}
                 onClick={() => setShowChat(true)}
-                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 transition-all active:scale-95"
-                title="Open AI Analyst"
+                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-[0_20px_50px_rgba(79,70,229,0.3)] hover:bg-indigo-500 transition-colors"
               >
-                <MessageSquare size={16} />
-                <span className="hidden sm:inline">Ask AI</span>
+                <MessageSquare size={24} />
               </motion.button>
             ) : (
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="w-[400px] h-[560px] shadow-2xl shadow-black/60 rounded-2xl overflow-hidden"
+                initial={{ y: 100, opacity: 0, scale: 0.9 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 100, opacity: 0, scale: 0.9 }}
+                className="w-[440px] h-[640px] shadow-[0_30px_100px_rgba(0,0,0,0.8)] rounded-[32px] overflow-hidden border border-white/10"
               >
                 <AIChatPanel sheet={currentSheet} onClose={() => setShowChat(false)} />
               </motion.div>

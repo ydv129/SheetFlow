@@ -1,9 +1,9 @@
 /**
- * useExcelLiveLink — Upload-only Excel hook with sessionStorage persistence.
+ * useExcelLiveLink — Multi-file Excel hook with sessionStorage persistence.
  *
- * - User picks a file via <input type="file">
- * - Parsed workbook is stored in sessionStorage (survives page refresh)
- * - No polling, no Web Workers, no IndexedDB
+ * - User picks one or more files via <input type="file">
+ * - Parsed workbooks are stored in sessionStorage (survives page refresh)
+ * - Managed as a list: users can switch between multiple active files
  */
 "use client";
 
@@ -12,142 +12,143 @@ import { parseExcelFile, ExcelWorkbook } from "@/lib/excelParser";
 
 export type FileStatus = "idle" | "loading" | "ready" | "error";
 
+export interface WorkbookEntry {
+  fileName: string;
+  workbook: ExcelWorkbook;
+  id: string;
+}
+
 export interface UseExcelLiveLinkReturn {
-  fileHandle: File | null;
-  fileName: string | null;
-  workbook: ExcelWorkbook | null;
+  workbooks: WorkbookEntry[];
+  activeWorkbookIndex: number;
+  activeWorkbook: ExcelWorkbook | null;
+  activeFileName: string | null;
   status: FileStatus;
-  isWatching: boolean;
   error: string | null;
-  selectFile: () => Promise<void>;
-  refresh: () => Promise<void>;
-  clearFile: () => Promise<void>;
-  stopWatching: () => void;
-  resumeWatching: () => Promise<void>;
-  savedFileNames: string[];
-  loadSavedFile: (fileName: string) => Promise<void>;
+  selectFiles: () => Promise<void>;
+  setActiveWorkbook: (index: number) => void;
+  clearAll: () => void;
+  removeWorkbook: (index: number) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
 }
 
-const SESSION_KEY = "sheetflow_workbook";
-const MAX_SESSION_BYTES = 25 * 1024 * 1024; // 25 MB cap
+const SESSION_KEY_LIST = "sheetflow_workbooks_list";
+const MAX_SESSION_BYTES = 30 * 1024 * 1024; // 30 MB aggregate cap
 
-/** Try to save workbook+name to sessionStorage. Silently skip if too large. */
-function saveToSession(fileName: string, wb: ExcelWorkbook) {
+/** Save list of workbooks to sessionStorage */
+function saveAllToSession(entries: WorkbookEntry[]) {
   try {
-    const payload = JSON.stringify({ fileName, workbook: wb });
-    if (payload.length > MAX_SESSION_BYTES) return; // skip huge files
-    sessionStorage.setItem(SESSION_KEY, payload);
-  } catch {
-    // quota exceeded — ignore
-  }
+    const payload = JSON.stringify(entries);
+    if (payload.length > MAX_SESSION_BYTES) return; 
+    sessionStorage.setItem(SESSION_KEY_LIST, payload);
+  } catch { /* ignore */ }
 }
 
-/** Restore from sessionStorage. Returns null on failure. */
-function loadFromSession(): { fileName: string; workbook: ExcelWorkbook } | null {
+/** Restore from sessionStorage */
+function loadAllFromSession(): WorkbookEntry[] {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed?.fileName && parsed?.workbook) return parsed as { fileName: string; workbook: ExcelWorkbook };
+    const raw = sessionStorage.getItem(SESSION_KEY_LIST);
+    return raw ? JSON.parse(raw) : [];
   } catch {
-    sessionStorage.removeItem(SESSION_KEY);
+    return [];
   }
-  return null;
 }
 
 export function useExcelLiveLink(): UseExcelLiveLinkReturn {
-  const [file, setFile] = useState<File | null>(null);
-  const [workbook, setWorkbook] = useState<ExcelWorkbook | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [workbooks, setWorkbooks] = useState<WorkbookEntry[]>([]);
+  const [activeIdx, setActiveIdx] = useState(0);
   const [status, setStatus] = useState<FileStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // ── Restore from sessionStorage on first mount ─────────────────────────
+  // Restore on mount
   useEffect(() => {
-    const saved = loadFromSession();
-    if (saved) {
-      setWorkbook(saved.workbook);
-      setFileName(saved.fileName);
+    const saved = loadAllFromSession();
+    if (saved.length > 0) {
+      setWorkbooks(saved);
       setStatus("ready");
     }
   }, []);
 
-  // ── Parse a File object ────────────────────────────────────────────────
-  const parseFile = useCallback(async (f: File) => {
-    try {
+  // Parse files
+  const handleInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const chosen = Array.from(e.target.files || []);
+      if (inputRef.current) inputRef.current.value = "";
+      if (chosen.length === 0) return;
+
       setStatus("loading");
       setError(null);
-      const wb = await parseExcelFile(f);
-      setFile(f);
-      setFileName(f.name);
-      setWorkbook(wb);
-      setStatus("ready");
-      saveToSession(f.name, wb);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to parse file";
-      setError(msg);
-      setStatus("error");
-      console.error("[useExcelUpload] parse error:", err);
-    }
-  }, []);
 
-  // ── Open file picker ───────────────────────────────────────────────────
-  const selectFile = useCallback(async () => {
+      try {
+        const newEntries: WorkbookEntry[] = [];
+        for (const f of chosen) {
+          const wb = await parseExcelFile(f);
+          newEntries.push({
+            fileName: f.name,
+            workbook: wb,
+            id: crypto.randomUUID(),
+          });
+        }
+
+        setWorkbooks((prev) => {
+          const updated = [...prev, ...newEntries];
+          saveAllToSession(updated);
+          return updated;
+        });
+        setStatus("ready");
+        // Auto-switch to the first new file if none existed
+        if (workbooks.length === 0) setActiveIdx(0);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to parse files");
+        setStatus("error");
+      }
+    },
+    [workbooks.length]
+  );
+
+  const selectFiles = useCallback(async () => {
     inputRef.current?.click();
   }, []);
 
-  // ── Handle input change (called by ExcelUploadSection via ref) ─────────
-  const handleInputChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const chosen = e.target.files?.[0];
-      if (inputRef.current) inputRef.current.value = "";
-      if (!chosen) return;
-      await parseFile(chosen);
-    },
-    [parseFile]
-  );
-
-
-
-  // ── Re-parse current file (requires original File object) ─────────────
-  const refresh = useCallback(async () => {
-    if (!file) {
-      // If restored from session, no File object — just re-render from state
-      if (workbook) { setStatus("ready"); return; }
-      setError("No file loaded — please upload again.");
-      return;
+  const setActiveWorkbook = useCallback((index: number) => {
+    if (index >= 0 && index < workbooks.length) {
+      setActiveIdx(index);
     }
-    await parseFile(file);
-  }, [file, workbook, parseFile]);
+  }, [workbooks.length]);
 
-  // ── Clear everything ───────────────────────────────────────────────────
-  const clearFile = useCallback(async () => {
-    setFile(null);
-    setFileName(null);
-    setWorkbook(null);
+  const removeWorkbook = useCallback((index: number) => {
+    setWorkbooks((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      saveAllToSession(updated);
+      return updated;
+    });
+    if (activeIdx >= index && activeIdx > 0) {
+      setActiveIdx(activeIdx - 1);
+    }
+  }, [activeIdx]);
+
+  const clearAll = useCallback(() => {
+    setWorkbooks([]);
+    setActiveIdx(0);
     setStatus("idle");
-    setError(null);
-    sessionStorage.removeItem(SESSION_KEY);
-    if (inputRef.current) inputRef.current.value = "";
+    sessionStorage.removeItem(SESSION_KEY_LIST);
   }, []);
 
+  const activeEntry = workbooks[activeIdx] || null;
+
   return {
-    fileHandle: file,
-    fileName,
-    workbook,
+    workbooks,
+    activeWorkbookIndex: activeIdx,
+    activeWorkbook: activeEntry?.workbook || null,
+    activeFileName: activeEntry?.fileName || null,
     status,
-    isWatching: false,
     error,
-    selectFile,
-    refresh,
-    clearFile,
-    stopWatching: () => {},
-    resumeWatching: async () => {},
-    savedFileNames: [],
-    loadSavedFile: async () => {},
+    selectFiles,
+    setActiveWorkbook,
+    clearAll,
+    removeWorkbook,
     inputRef,
     handleInputChange,
   };

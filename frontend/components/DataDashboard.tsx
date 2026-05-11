@@ -415,115 +415,143 @@ export const DataDashboard = memo(function DataDashboard({ sheet }: DataDashboar
         </motion.div>
       </div>
 
-      {/* ── Category Insights (Dynamic Cards) ──────────────────────── */}
+      {/* ── Category Insights (Dynamic Bento Grid) ──────────────────────── */}
       {catData.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.4 }}
-          className="space-y-4"
+          className="space-y-6"
         >
           <SectionHeader 
-            title="Category Insights" 
-            subtitle={`Distribution analysis of ${catCol}`} 
+            title="Category Intelligence" 
+            subtitle={`Structural analysis of ${catCol}`} 
           />
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
               {catData.map((d, i) => {
                 const total = catData.reduce((acc, curr) => acc + curr.value, 0);
-                const pct = ((d.value / total) * 100).toFixed(1);
+                const pct = (d.value / total) * 100;
                 const color = PALETTE[i % PALETTE.length];
-                const isExpanded = activePieIndex === i; // Using activePieIndex for expansion state
+                const isExpanded = activePieIndex === i;
                 
+                // Get top 3 contributors for this category if possible
+                const topContributors = sheet?.data
+                  ?.filter(row => row[catCol] === d.name)
+                  .slice(0, 3)
+                  .map(row => row[Object.keys(row)[0]]) || [];
+
                 return (
                   <motion.div
                     key={d.name}
                     layout
-                    initial={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                    onClick={() => setActivePieIndex(activePieIndex === i ? null : i)}
-                    className={`relative group cursor-pointer overflow-hidden rounded-2xl border transition-all duration-300 backdrop-blur-md ${
+                    whileHover={{ y: -8, transition: { duration: 0.2 } }}
+                    onClick={() => setActivePieIndex(isExpanded ? null : i)}
+                    className={`relative group cursor-pointer overflow-hidden rounded-[2.5rem] border transition-all duration-500 backdrop-blur-2xl ${
                       isExpanded 
-                        ? "col-span-full ring-2 ring-indigo-500/50 bg-slate-800/90 p-6 border-indigo-500/30 shadow-2xl" 
-                        : "bg-slate-900/60 p-4 border-white/[0.07] hover:border-white/20 hover:bg-slate-800/80 shadow-lg"
+                        ? "col-span-full ring-2 ring-indigo-500/40 bg-white/[0.04] p-8 border-indigo-500/30 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.6)]" 
+                        : "bg-white/[0.02] p-6 border-white/[0.06] hover:border-white/20 hover:bg-white/[0.05] shadow-xl"
                     }`}
                   >
-                    {/* Decorative accent glow */}
+                    {/* Visual Background Glow */}
                     <div 
-                      className="absolute -top-12 -right-12 w-24 h-24 rounded-full blur-[40px] opacity-10 group-hover:opacity-30 transition-opacity"
-                      style={{ background: color }}
+                      className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-0 group-hover:opacity-20 transition-opacity"
+                      style={{ backgroundColor: color }}
                     />
-                    
-                    <div className="flex items-start justify-between mb-4">
+
+                    <div className="flex items-start justify-between mb-8">
                       <div className="space-y-1">
-                        <motion.h4 layout="position" className={`font-bold text-white transition-colors ${isExpanded ? "text-xl" : "text-sm"}`}>
-                          {d.name}
-                        </motion.h4>
-                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">
-                          Category Index #{i + 1}
-                        </p>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Classification</span>
+                        <h4 className="text-xl font-black text-white tracking-tight">{d.name}</h4>
                       </div>
-                      <div 
-                        className="px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm"
-                        style={{ background: `${color}33`, color }}
-                      >
-                        {pct}%
+                      
+                      {/* Circular Progress Visual */}
+                      <div className="relative w-14 h-14">
+                        <svg className="w-full h-full transform -rotate-90">
+                          <circle
+                            cx="28"
+                            cy="28"
+                            r="24"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="transparent"
+                            className="text-white/5"
+                          />
+                          <motion.circle
+                            cx="28"
+                            cy="28"
+                            r="24"
+                            stroke={color}
+                            strokeWidth="4"
+                            fill="transparent"
+                            strokeDasharray={150.8}
+                            initial={{ strokeDashoffset: 150.8 }}
+                            animate={{ strokeDashoffset: 150.8 - (150.8 * pct) / 100 }}
+                            transition={{ duration: 1.5, ease: "circOut" }}
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white">
+                          {Math.round(pct)}%
+                        </div>
                       </div>
                     </div>
 
-                    <div className={`flex flex-col ${isExpanded ? "md:flex-row md:items-center gap-8" : "gap-3"}`}>
-                      <div className={isExpanded ? "flex-1" : ""}>
-                        <div className="flex items-end justify-between mb-2">
-                          <span className={`font-bold text-white tabular-nums ${isExpanded ? "text-4xl" : "text-2xl"}`}>
-                            {d.value.toLocaleString()}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-medium">total instances</span>
-                        </div>
-
-                        {/* Progress bar with enhanced animation */}
-                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 1.2, delay: 0.1 * i, ease: [0.16, 1, 0.3, 1] }}
-                            className="h-full rounded-full"
-                            style={{ 
-                              background: `linear-gradient(90deg, ${color} 0%, ${color}aa 100%)`,
-                              boxShadow: `0 0 12px ${color}44`
-                            }}
-                          />
-                        </div>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="p-4 rounded-3xl bg-white/[0.03] border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Dominance</p>
+                        <p className="text-lg font-black text-white">{pct.toFixed(1)}%</p>
                       </div>
+                      <div className="p-4 rounded-3xl bg-white/[0.03] border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Frequency</p>
+                        <p className="text-lg font-black text-white">{d.value}</p>
+                      </div>
+                    </div>
 
+                    {/* Expanded Content */}
+                    <AnimatePresence>
                       {isExpanded && (
-                        <motion.div 
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className="flex-1 space-y-4"
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="space-y-6 pt-4 border-t border-white/10"
                         >
-                          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                              This category, <span className="text-white font-bold">"{d.name}"</span>, represents a significant portion of your dataset in the <span className="text-indigo-400 font-medium">{catCol}</span> column. 
-                              With <span className="text-white font-medium">{d.value.toLocaleString()} occurrences</span>, it accounts for approximately 
-                              <span className="text-white font-medium"> {pct}%</span> of the total entries analyzed. 
-                              Our local AI suggests that this segment may be a key driver for trends observed in <span className="text-indigo-400 font-medium">{numCol}</span>.
-                            </p>
+                          <div className="grid md:grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                              <h5 className="text-xs font-black text-indigo-400 uppercase tracking-widest">AI Summary</h5>
+                              <p className="text-sm text-slate-300 leading-relaxed italic">
+                                &ldquo;The category <span className="text-white font-bold">{d.name}</span> represents a significant 
+                                <span className="text-emerald-400 font-bold"> {pct.toFixed(1)}%</span> of your total distribution. 
+                                Analysis indicates high structural importance, specifically concentrated in {topContributors.join(", ") || "the top data points"}.&rdquo;
+                              </p>
+                            </div>
+                            <div className="space-y-4">
+                              <h5 className="text-xs font-black text-emerald-400 uppercase tracking-widest">Top Contributors</h5>
+                              <div className="space-y-2">
+                                {topContributors.map((val, idx) => (
+                                  <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+                                    <div className="w-5 h-5 rounded-lg bg-indigo-500/20 flex items-center justify-center text-[10px] font-black text-indigo-400">
+                                      {idx + 1}
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-300 truncate">{String(val)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex gap-4">
-                            <div className="flex-1 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                              <p className="text-[10px] text-slate-500 uppercase font-bold">Dominance</p>
-                              <p className="text-sm text-white font-bold">{pct}%</p>
-                            </div>
-                            <div className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                              <p className="text-[10px] text-slate-500 uppercase font-bold">Frequency</p>
-                              <p className="text-sm text-white font-bold">High</p>
-                            </div>
+                          
+                          <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                            <span>Last Analyzed: {new Date().toLocaleTimeString()}</span>
+                            <span className="text-indigo-400">Local Privacy Shield Active</span>
                           </div>
                         </motion.div>
                       )}
-                    </div>
+                    </AnimatePresence>
                     
                     {!isExpanded && (
                       <div className="mt-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 duration-300">

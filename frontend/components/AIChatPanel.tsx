@@ -13,7 +13,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect, memo } from "react";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, ChevronRight, Table2, MessageSquare, Activity } from "lucide-react";
 import { useLocalAI } from "@/frontend/hooks/useLocalAI";
 import type { ExcelSheet } from "@/lib/excelParser";
 
@@ -55,6 +58,13 @@ export const AIChatPanel = memo(function AIChatPanel({
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // ── Auto-initialize AI if not ready ────────────────────────────────────────
+  useEffect(() => {
+    if (status === "not-initialized") {
+      initEngine();
+    }
+  }, [status, initEngine]);
 
   // ── Submit handler ─────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
@@ -101,247 +111,225 @@ export const AIChatPanel = memo(function AIChatPanel({
   // ── No sheet guard ─────────────────────────────────────────────────────────
   if (!sheet) {
     return (
-      <div className="p-6 text-center text-muted-foreground">
-        <p className="mb-2 text-2xl">📊</p>
-        <p className="font-medium">Upload an Excel file to start chatting</p>
-        <p className="text-sm mt-1 text-muted-foreground">
-          Once data is loaded you can ask questions here
+      <div className="flex flex-col items-center justify-center h-full p-12 text-center bg-[#030712]">
+        <div className="w-20 h-20 rounded-3xl bg-indigo-500/10 flex items-center justify-center mb-6 border border-indigo-500/20">
+          <Table2 className="text-indigo-400" size={32} />
+        </div>
+        <h3 className="text-xl font-bold text-white mb-2">No Data Found</h3>
+        <p className="text-slate-400 text-sm max-w-xs">
+          Please upload a spreadsheet first to activate the AI Analyst.
         </p>
       </div>
     );
   }
 
-  // ── Status banner ──────────────────────────────────────────────────────────
-  function StatusBanner() {
-    if (status === "not-initialized") {
-      return (
-        <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-lg text-center">
-          <p className="text-muted-foreground text-sm mb-3">
-            🤖 Local AI is not loaded yet. Models run 100% on your device.
-          </p>
-          <button
-            onClick={initEngine}
-            className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white rounded-lg font-semibold text-sm transition active:scale-95"
-          >
-            Load AI Model
-          </button>
-        </div>
-      );
-    }
-
-    if (status === "initializing") {
-      return (
-        <div className="p-4 bg-blue-950/40 border border-blue-800 rounded-lg flex items-center gap-3">
-          <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full flex-shrink-0" />
-          <span className="text-blue-300 text-sm font-medium">
-            Initializing AI engine…
-          </span>
-        </div>
-      );
-    }
-
-    if (status === "downloading-model") {
-      return (
-        <div className="p-4 bg-yellow-950/40 border border-yellow-800 rounded-lg">
-          <p className="text-yellow-300 font-medium text-sm mb-2">
-            📥 Downloading model ({downloadProgress}%)
-          </p>
-          <div className="w-full bg-slate-700 rounded-full h-2">
-            <div
-              className="bg-gradient-to-r from-yellow-400 to-emerald-400 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${downloadProgress}%` }}
-            />
-          </div>
-          <p className="text-xs text-yellow-600 mt-2">
-            First time only — model is cached after download
-          </p>
-        </div>
-      );
-    }
-
-    if (status === "error") {
-      return (
-        <div className="p-4 bg-red-950/40 border border-red-800 rounded-lg">
-          <p className="text-red-300 font-medium text-sm mb-1">⚠️ AI Unavailable</p>
-          <p className="text-red-400 text-xs mb-3">
-            {aiError ?? "Local AI could not be started."}
-          </p>
-          <button
-            onClick={initEngine}
-            className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-medium transition active:scale-95"
-          >
-            Retry
-          </button>
-        </div>
-      );
-    }
-
-    if (isReady) {
-      return (
-        <div className="p-2 bg-green-950/30 border border-green-800 rounded text-xs flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-emerald-300 font-medium">AI Ready</span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-slate-400">{currentModel}</span>
-        </div>
-      );
-    }
-
-    return null;
-  }
+  // ── Neural Thinking Animation ──────────────────────────────────────────────
+  const ThinkingIndicator = () => (
+    <div className="flex gap-1.5 items-center px-4 py-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 w-fit">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            animate={{ 
+              scale: [1, 1.5, 1],
+              opacity: [0.3, 1, 0.3]
+            }}
+            transition={{ 
+              duration: 1, 
+              repeat: Infinity, 
+              delay: i * 0.2 
+            }}
+            className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]"
+          />
+        ))}
+      </div>
+      <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest ml-2 italic">Thinking</span>
+    </div>
+  );
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full bg-slate-900/80 rounded-xl border border-slate-700 overflow-hidden">
-      {/* Header */}
-      <div className="border-b border-slate-700 px-4 py-3 flex justify-between items-center flex-shrink-0">
-        <h2 className="font-bold text-foreground text-sm">🤖 AI Analyst</h2>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-lg leading-none transition"
+    <div className="flex flex-col h-full bg-[#030712] border-l border-white/[0.06] backdrop-blur-3xl shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
+      {/* Premium Header */}
+      <div className="flex-shrink-0 px-6 py-5 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <motion.div 
+            animate={{ rotate: [0, 8, 0], scale: [1, 1.05, 1] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800/50 p-1.5 border border-white/10 shadow-2xl"
           >
-            ✕
+            <Image src="/icon.png" alt="AI Logo" width={28} height={28} className="relative z-10" />
+            <div className="absolute inset-0 bg-indigo-500/10 blur-md rounded-full" />
+          </motion.div>
+          <div>
+            <h2 className="text-sm font-black text-white uppercase tracking-tight">AI Analyst</h2>
+            <div className="flex items-center gap-1.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${isReady ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-slate-600"}`} />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                {isReady ? "Local Engine Ready" : "Initializing..."}
+              </span>
+            </div>
+          </div>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-all">
+            <ChevronRight size={20} />
           </button>
         )}
       </div>
 
-      {/* Status */}
-      <div className="px-4 pt-3 pb-1 flex-shrink-0">
-        <StatusBanner />
+      {/* Model Selection Dropdown/Tabs */}
+      <div className="flex-shrink-0 px-6 py-4 bg-white/[0.01] border-b border-white/[0.04]">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Model Tier</span>
+          {!isReady && status === "not-initialized" && (
+            <button 
+              onClick={initEngine}
+              className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
+            >
+              Load AI Now
+            </button>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              { key: "SmolLM2-360M", label: "Tiny", free: true },
+              { key: "TinyLlama-1.1B", label: "Fast", free: false },
+              { key: "Phi-3-mini-4k", label: "Smart", free: false },
+            ] as const
+          ).map(({ key, label, free }) => {
+            const isPro = (session?.user as any)?.subscriptionTier === "pro";
+            const locked = !free && !isPro;
+            const active = currentModel === key;
+            
+            return (
+              <button
+                key={key}
+                onClick={() => !locked && switchModel(key)}
+                disabled={isLoading || locked || !isReady}
+                className={`relative group px-2 py-2 rounded-xl border text-[11px] font-bold transition-all ${
+                  active 
+                    ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-300 shadow-[0_0_15px_-5px_rgba(99,102,241,0.4)]" 
+                    : "bg-white/[0.02] border-white/[0.05] text-slate-500 hover:border-white/10 hover:text-slate-300"
+                } ${locked ? "opacity-40 cursor-not-allowed" : ""}`}
+              >
+                {label}
+                {locked && <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-[7px] text-white px-1 py-0.5 rounded-full font-black shadow-lg">PRO</span>}
+                {active && <motion.div layoutId="active-model" className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,1)]" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Model switcher — only visible when ready */}
-      {isReady && (
-        <div className="px-4 py-2 border-b border-slate-700 flex-shrink-0">
-          <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">
-            Model
-          </p>
-          <div className="flex gap-2 flex-wrap">
-            {(
-              [
-                { key: "SmolLM2-360M", label: "🚀 Tiny (360M)", free: true },
-                { key: "TinyLlama-1.1B", label: "⚡ Fast (1.1B)", free: false },
-                { key: "Phi-3-mini-4k", label: "🧠 Smart (3.8B)", free: false },
-              ] as const
-            ).map(({ key, label, free }) => {
-              const isPro = (session?.user as any)?.subscriptionTier === "pro";
-              const locked = !free && !isPro;
-              
-              return (
-                <button
-                  key={key}
-                  onClick={() => !locked && switchModel(key)}
-                  disabled={isLoading || status !== "ready" || locked}
-                  className={`relative px-3 py-1.5 rounded text-xs font-medium transition disabled:opacity-50 ${
-                    currentModel === key
-                      ? "bg-indigo-600 text-white"
-                      : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                  } ${locked ? "cursor-not-allowed grayscale" : ""}`}
-                >
-                  {label}
-                  {locked && (
-                    <span className="absolute -top-1 -right-1 bg-amber-500 text-[8px] text-white px-1 rounded-full font-bold">PRO</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Download Progress Overlay */}
+      <AnimatePresence>
+        {status === "downloading-model" && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="px-6 py-4 bg-indigo-500/10 border-b border-indigo-500/20"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Optimizing Model</span>
+              <span className="text-[10px] font-black text-indigo-300">{downloadProgress}%</span>
+            </div>
+            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                initial={{ width: 0 }}
+                animate={{ width: `${downloadProgress}%` }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin">
-        {messages.length === 0 && isReady && (
-          <div className="text-center text-muted-foreground py-8 text-sm">
-            <p className="mb-1">💬 Ask anything about your data</p>
-            <p className="text-xs">
-              Try: &ldquo;What are the top 5 values?&rdquo; or &ldquo;Show me the average&rdquo;
-            </p>
+      {/* Chat Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {messages.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
+            <div className="w-16 h-16 rounded-full border border-dashed border-white/20 flex items-center justify-center mb-4">
+              <MessageSquare size={24} className="text-white" />
+            </div>
+            <h4 className="text-sm font-bold text-white mb-1 uppercase tracking-widest">Local Intel Engine</h4>
+            <p className="text-[10px] text-slate-400 max-w-[180px]">Ask questions about trends, statistics, or data points in this sheet.</p>
           </div>
         )}
 
         {messages.map((msg) => (
-          <div
+          <motion.div
             key={msg.id}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] px-4 py-3 rounded-xl text-sm whitespace-pre-wrap ${
+              className={`relative max-w-[85%] px-5 py-4 rounded-[24px] text-sm leading-relaxed shadow-xl ${
                 msg.role === "user"
-                  ? "bg-indigo-600 text-white rounded-br-sm"
+                  ? "bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-br-none shadow-indigo-500/10"
                   : msg.isError
-                  ? "bg-red-950/60 text-red-300 border border-red-800 rounded-bl-sm"
-                  : "bg-slate-700/70 text-slate-100 rounded-bl-sm"
+                  ? "bg-red-500/10 border border-red-500/20 text-red-300 rounded-bl-none"
+                  : "bg-white/[0.03] border border-white/[0.06] text-slate-200 rounded-bl-none"
               }`}
             >
               {msg.content}
-              <p
-                className={`text-xs mt-1 ${
-                  msg.role === "user" ? "text-indigo-200" : "text-slate-500"
-                }`}
-              >
-                {msg.timestamp.toLocaleTimeString()}
-              </p>
+              <div className={`absolute bottom-[-18px] text-[9px] font-bold uppercase tracking-widest ${msg.role === "user" ? "right-2 text-indigo-500/60" : "left-2 text-slate-600"}`}>
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-slate-700/70 text-slate-300 px-4 py-3 rounded-xl rounded-bl-sm flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-slate-400 border-t-slate-100 rounded-full" />
-              <span className="text-sm">Thinking…</span>
-            </div>
-          </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+            <ThinkingIndicator />
+          </motion.div>
         )}
-
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-slate-700 p-4 bg-slate-900/60 flex-shrink-0">
-        {isReady ? (
-          <form onSubmit={handleSubmit} className="space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about your data…"
-                disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-slate-800 border border-slate-600 text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-              />
-              {isLoading ? (
-                <button
-                  type="button"
-                  onClick={stopGeneration}
-                  className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition active:scale-95"
-                >
-                  ■ Stop
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!input.trim()}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition active:scale-95 disabled:opacity-40"
-                >
-                  Send
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              🔒 All processing is local — your data never leaves this device
-            </p>
-          </form>
-        ) : (
-          <p className="text-center text-muted-foreground text-xs py-1">
-            {status === "initializing" && "Starting AI engine…"}
-            {status === "downloading-model" && `Downloading model (${downloadProgress}%)…`}
-            {status === "not-initialized" && "Click 'Load AI Model' above to get started"}
-            {status === "error" && "AI unavailable — see details above"}
-          </p>
-        )}
+      {/* Message Input Area */}
+      <div className="flex-shrink-0 p-6 bg-gradient-to-t from-black to-transparent">
+        <form onSubmit={handleSubmit} className="relative group">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={isReady ? "Ask about your data..." : "Initialize AI to start..."}
+            disabled={isLoading || !isReady}
+            className="w-full bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-slate-600 rounded-2xl px-6 py-4 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all group-focus-within:bg-white/[0.05] group-focus-within:border-white/20 shadow-2xl"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+            {isLoading ? (
+              <button
+                type="button"
+                onClick={stopGeneration}
+                className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all"
+              >
+                <div className="w-4 h-4 bg-current rounded-sm" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim() || !isReady}
+                className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all disabled:opacity-20 disabled:grayscale"
+              >
+                <Sparkles size={18} />
+              </button>
+            )}
+          </div>
+        </form>
+        <div className="mt-4 flex items-center justify-center gap-4 text-[9px] font-black text-slate-700 uppercase tracking-[0.2em]">
+          <span>E2E Encryption</span>
+          <span className="w-1 h-1 rounded-full bg-slate-800" />
+          <span>Local Inference</span>
+          <span className="w-1 h-1 rounded-full bg-slate-800" />
+          <span>No Cloud Sync</span>
+        </div>
       </div>
     </div>
   );

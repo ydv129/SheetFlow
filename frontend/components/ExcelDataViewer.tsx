@@ -185,7 +185,7 @@ export const ExcelDataViewer = memo(function ExcelDataViewer({
           <div className="py-10 text-center text-slate-500 text-sm">This sheet is empty</div>
         ) : (
           <>
-            <div ref={tableRef} className="h-[480px] overflow-auto scrollbar-thin">
+            <div ref={tableRef} className="h-[480px] overflow-auto">
               <table className="w-full border-collapse text-xs">
                 <thead className="sticky top-0 z-10 bg-slate-900 shadow-[0_1px_0_rgba(255,255,255,0.06)]">
                   {table.getHeaderGroups().map((hg) => (

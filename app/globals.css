@@ -77,9 +77,16 @@
   }
 }
 
-/* -- Scrollbar styling -- */
-* { scrollbar-width: none; -ms-overflow-style: none; }
-*::-webkit-scrollbar { display: none; }
+/* -- Scrollbar hiding (Immersive Mode) -- */
+html, body, * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.3) transparent; }
 .scrollbar-thin::-webkit-scrollbar { display: block; width: 4px; height: 4px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
