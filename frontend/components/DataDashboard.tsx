@@ -437,10 +437,10 @@ export const DataDashboard = memo(function DataDashboard({ sheet }: DataDashboar
                 const isExpanded = activePieIndex === i;
                 
                 // Get top 3 contributors for this category if possible
-                const topContributors = sheet?.data
-                  ?.filter(row => row[catCol] === d.name)
+                const topContributors = sheet?.rows
+                  ?.filter((row: Record<string, any>) => row[catCol] === d.name)
                   .slice(0, 3)
-                  .map(row => row[Object.keys(row)[0]]) || [];
+                  .map((row: Record<string, any>) => row[Object.keys(row)[0]]) || [];
 
                 return (
                   <motion.div
@@ -533,7 +533,7 @@ export const DataDashboard = memo(function DataDashboard({ sheet }: DataDashboar
                             <div className="space-y-4">
                               <h5 className="text-xs font-black text-emerald-400 uppercase tracking-widest">Top Contributors</h5>
                               <div className="space-y-2">
-                                {topContributors.map((val, idx) => (
+                                {topContributors.map((val: any, idx: number) => (
                                   <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
                                     <div className="w-5 h-5 rounded-lg bg-indigo-500/20 flex items-center justify-center text-[10px] font-black text-indigo-400">
                                       {idx + 1}

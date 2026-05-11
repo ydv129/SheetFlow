@@ -264,7 +264,7 @@ export function DashboardClient() {
                 initial={{ scale: 0, rotate: -20 }}
                 animate={{ scale: 1, rotate: 0 }}
                 whileHover={{ scale: 1.1 }}
-                whileActive={{ scale: 0.9 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => setShowChat(true)}
                 className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-[0_20px_50px_rgba(79,70,229,0.3)] hover:bg-indigo-500 transition-colors"
               >
